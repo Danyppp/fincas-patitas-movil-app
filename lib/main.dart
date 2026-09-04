@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/app_config.dart';
 import 'repositories/animal_repository.dart';
 import 'repositories/api_animal_repository.dart';
+import 'repositories/api_reproduction_repository.dart';
 import 'repositories/mock_animal_repository.dart';
+import 'repositories/mock_reproduction_repository.dart';
+import 'repositories/reproduction_repository.dart';
 import 'screens/home/home_shell.dart';
 
-void main() {
+Future<void> main() async {
+  // Necesario antes de usar DateFormat con locale 'es' (fechas de
+  // Reproducción y Animales) — sin esto, DateFormat lanza
+  // LocaleDataException al primer build.
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es');
   runApp(const FincasPatitasApp());
 }
 
@@ -21,6 +30,9 @@ class FincasPatitasApp extends StatelessWidget {
     // pantalla necesita cambiar.
     final AnimalRepository animalRepository =
         AppConfig.useRealApi ? ApiAnimalRepository() : MockAnimalRepository();
+    final ReproductionRepository reproductionRepository = AppConfig.useRealApi
+        ? ApiReproductionRepository()
+        : MockReproductionRepository();
 
     return MaterialApp(
       title: 'Fincas y Patitas',
@@ -29,7 +41,10 @@ class FincasPatitasApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF3F6B4A),
         useMaterial3: true,
       ),
-      home: HomeShell(animalRepository: animalRepository),
+      home: HomeShell(
+        animalRepository: animalRepository,
+        reproductionRepository: reproductionRepository,
+      ),
     );
   }
 }
