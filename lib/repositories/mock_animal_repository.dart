@@ -93,6 +93,12 @@ class MockAnimalRepository implements AnimalRepository {
   ];
 
   @override
+  Future<List<Species>> getSpecies() async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return [_bovino, _porcino];
+  }
+
+  @override
   Future<List<Animal>> getAll() async {
     await Future.delayed(const Duration(milliseconds: 400));
     return List.unmodifiable(_animales);
@@ -110,6 +116,13 @@ class MockAnimalRepository implements AnimalRepository {
   @override
   Future<Animal> create(CreateAnimalDTO dto) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    Species? especie;
+    for (final s in [_bovino, _porcino]) {
+      if (s.id == dto.speciesId) {
+        especie = s;
+        break;
+      }
+    }
     final nuevo = Animal(
       id: 'a${_animales.length + 1}',
       code: 'CER-2026-${(_animales.length + 1).toString().padLeft(5, '0')}',
@@ -125,6 +138,7 @@ class MockAnimalRepository implements AnimalRepository {
       notes: dto.notes,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      species: especie,
     );
     _animales.add(nuevo);
     return nuevo;
