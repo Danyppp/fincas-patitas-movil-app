@@ -1,4 +1,5 @@
 import '../models/animal.dart';
+import '../models/species.dart';
 
 /// Contrato del repositorio de animales.
 ///
@@ -10,4 +11,9 @@ abstract class AnimalRepository {
   Future<List<Animal>> getAll();
   Future<Animal> getById(String id);
   Future<Animal> create(CreateAnimalDTO dto);
+
+  /// Especies disponibles para el formulario de creación (bovino, porcino,
+  /// etc.). Separado de [getAll] porque es un catálogo, no un listado de
+  /// animales.
+  Future<List<Species>> getSpecies();
 }

@@ -4,6 +4,7 @@ import '../../models/animal.dart';
 import '../../repositories/animal_repository.dart';
 import '../../widgets/animal_card.dart';
 import 'animal_detail_screen.dart';
+import 'animal_form_screen.dart';
 
 /// Pantalla principal del módulo de animales: lista todos los animales
 /// de la finca. Recibe el repositorio por constructor (inyección de
@@ -80,10 +81,18 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registrar animal — próximo paso del módulo')),
+        onPressed: () async {
+          final creado = await Navigator.of(context).push<Animal>(
+            MaterialPageRoute(
+              builder: (_) => AnimalFormScreen(repository: widget.repository),
+            ),
           );
+          // Si se creó un animal nuevo, refrescamos la lista para mostrarlo
+          // de inmediato; si el usuario solo canceló el formulario, `creado`
+          // llega null y no hacemos nada.
+          if (creado != null) {
+            await _refrescar();
+          }
         },
         icon: const Icon(Icons.add),
         label: const Text('Nuevo animal'),
@@ -142,7 +151,8 @@ class _ErrorState extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onReintentar, child: const Text('Reintentar')),
+            FilledButton(
+                onPressed: onReintentar, child: const Text('Reintentar')),
           ],
         ),
       ),

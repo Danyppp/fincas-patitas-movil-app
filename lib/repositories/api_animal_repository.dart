@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../models/animal.dart';
+import '../models/species.dart';
 import 'animal_repository.dart';
 
 /// Implementación real, contra el backend de Milena (Express + TS sobre
@@ -15,7 +16,8 @@ import 'animal_repository.dart';
 class ApiAnimalRepository implements AnimalRepository {
   final http.Client _client;
 
-  ApiAnimalRepository({http.Client? client}) : _client = client ?? http.Client();
+  ApiAnimalRepository({http.Client? client})
+      : _client = client ?? http.Client();
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}$path');
 
@@ -24,9 +26,7 @@ class ApiAnimalRepository implements AnimalRepository {
     final res = await _client.get(_uri('/animales'));
     _checkOk(res);
     final data = jsonDecode(res.body) as List<dynamic>;
-    return data
-        .map((e) => Animal.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return data.map((e) => Animal.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -45,6 +45,18 @@ class ApiAnimalRepository implements AnimalRepository {
     );
     _checkOk(res);
     return Animal.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<Species>> getSpecies() async {
+    // Ruta asumida `GET /especies` — AJUSTAR cuando Milena confirme el
+    // endpoint real del catálogo de especies.
+    final res = await _client.get(_uri('/especies'));
+    _checkOk(res);
+    final data = jsonDecode(res.body) as List<dynamic>;
+    return data
+        .map((e) => Species.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   void _checkOk(http.Response res) {
