@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Pantalla de relleno para los módulos que todavía no se han construido
-/// (Reproducción, Producción, Inventario). Existe para que la navegación
-/// base quede completa desde ya — cada una se reemplaza por su pantalla
-/// real cuando le llegue el turno en el cronograma.
+/// Placeholder para módulos que no son prioridad de este sprint (Salud
+/// Animal/Potreros, Inventario/Financiero). El backend ya los tiene
+/// implementados; se conectan cuando el cronograma lo permita.
 class ProximamenteScreen extends StatelessWidget {
   final String titulo;
   final IconData icono;
@@ -18,9 +17,9 @@ class ProximamenteScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono, size: 48, color: Colors.grey),
+            Icon(icono, size: 64, color: Colors.black26),
             const SizedBox(height: 12),
-            Text('$titulo — próximamente', style: Theme.of(context).textTheme.titleMedium),
+            Text('$titulo — próximamente', style: const TextStyle(color: Colors.black54)),
           ],
         ),
       ),

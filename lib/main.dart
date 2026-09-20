@@ -2,49 +2,108 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/app_config.dart';
-import 'repositories/animal_repository.dart';
-import 'repositories/api_animal_repository.dart';
-import 'repositories/api_reproduction_repository.dart';
-import 'repositories/mock_animal_repository.dart';
-import 'repositories/mock_reproduction_repository.dart';
-import 'repositories/reproduction_repository.dart';
+import 'core/api_client.dart';
+import 'core/auth_session.dart';
+import 'theme/app_theme.dart';
+import 'repositories/animales/animal_repository.dart';
+import 'repositories/animales/api_animal_repository.dart';
+import 'repositories/animales/mock_animal_repository.dart';
+import 'repositories/auth/api_auth_repository.dart';
+import 'repositories/auth/auth_repository.dart';
+import 'repositories/auth/mock_auth_repository.dart';
+import 'repositories/catalogo/api_catalogo_repository.dart';
+import 'repositories/catalogo/catalogo_repository.dart';
+import 'repositories/catalogo/mock_catalogo_repository.dart';
+import 'repositories/produccion/api_produccion_repository.dart';
+import 'repositories/produccion/mock_produccion_repository.dart';
+import 'repositories/produccion/produccion_repository.dart';
+import 'repositories/reproduccion/api_reproduccion_repository.dart';
+import 'repositories/reproduccion/mock_reproduccion_repository.dart';
+import 'repositories/reproduccion/reproduccion_repository.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/home/home_shell.dart';
 
 Future<void> main() async {
   // Necesario antes de usar DateFormat con locale 'es' (fechas de
-  // Reproducción y Animales) — sin esto, DateFormat lanza
+  // Reproducción, Animales y Producción) — sin esto, DateFormat lanza
   // LocaleDataException al primer build.
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es');
-  runApp(const FincasPatitasApp());
+
+  final session = AuthSession();
+  await session.restoreSession();
+
+  runApp(FincasPatitasApp(session: session));
 }
 
-class FincasPatitasApp extends StatelessWidget {
-  const FincasPatitasApp({super.key});
+class FincasPatitasApp extends StatefulWidget {
+  final AuthSession session;
+
+  const FincasPatitasApp({super.key, required this.session});
+
+  @override
+  State<FincasPatitasApp> createState() => _FincasPatitasAppState();
+}
+
+class _FincasPatitasAppState extends State<FincasPatitasApp> {
+  late final ApiClient _apiClient = ApiClient(session: widget.session);
+
+  late final AuthRepository _authRepository = AppConfig.useRealApi
+      ? ApiAuthRepository(client: _apiClient)
+      : MockAuthRepository();
+
+  late final CatalogoRepository _catalogoRepository = AppConfig.useRealApi
+      ? ApiCatalogoRepository(client: _apiClient)
+      : MockCatalogoRepository();
+
+  late final AnimalRepository _animalRepository = AppConfig.useRealApi
+      ? ApiAnimalRepository(client: _apiClient)
+      : MockAnimalRepository();
+
+  late final ReproduccionRepository _reproduccionRepository =
+      AppConfig.useRealApi
+          ? ApiReproduccionRepository(client: _apiClient)
+          : MockReproduccionRepository();
+
+  late final ProduccionRepository _produccionRepository = AppConfig.useRealApi
+      ? ApiProduccionRepository(client: _apiClient)
+      : MockProduccionRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    // HomeShell/LoginScreen se reconstruyen automáticamente cuando cambia
+    // el estado de sesión (login, logout, o si restoreSession() encuentra
+    // una sesión guardada).
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  void _onSessionChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Único punto donde se decide qué implementación de AnimalRepository
-    // usa toda la app. Cuando el backend de Milena esté listo: cambiar
-    // AppConfig.useRealApi a true (y la URL en app_config.dart) — ninguna
-    // pantalla necesita cambiar.
-    final AnimalRepository animalRepository =
-        AppConfig.useRealApi ? ApiAnimalRepository() : MockAnimalRepository();
-    final ReproductionRepository reproductionRepository = AppConfig.useRealApi
-        ? ApiReproductionRepository()
-        : MockReproductionRepository();
-
     return MaterialApp(
       title: 'Fincas y Patitas',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF3F6B4A),
-        useMaterial3: true,
-      ),
-      home: HomeShell(
-        animalRepository: animalRepository,
-        reproductionRepository: reproductionRepository,
-      ),
+      theme: AppTheme.theme,
+      home: !widget.session.isInitialized
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : widget.session.isAuthenticated
+              ? HomeShell(
+                  animalRepository: _animalRepository,
+                  catalogoRepository: _catalogoRepository,
+                  reproduccionRepository: _reproduccionRepository,
+                  produccionRepository: _produccionRepository,
+                  session: widget.session,
+                )
+              : LoginScreen(
+                  repository: _authRepository, session: widget.session),
     );
   }
 }

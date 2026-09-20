@@ -1,153 +1,191 @@
-import 'sexo.dart';
-import 'species.dart';
+import 'catalogo/especie.dart';
+import 'catalogo/raza.dart';
 
-/// Modelo de dominio Animal.
+/// Modelo del animal según la tabla real `animales` (Prisma schema del
+/// backend). Reemplaza por completo el modelo anterior (basado en el
+/// esquema web/Supabase con UUIDs) — este usa id entero autoincremental y
+/// nombres de campo en español, tal como los expone la API.
 ///
-/// Traducido 1:1 desde `Animal` en
-/// `src/types/domain/animal.schema.ts` del proyecto web (repos
-/// ostiosmaily39/Granja_Fincas_Patitas y
-/// Laura-Sanabria/granja-fincas-patitas-frontend — solo referencia de
-/// lectura, no se tocan). Cuando el backend de Milena defina el
-/// contrato final de la API, este modelo es el punto donde se ajusta.
+/// `codigo` (ej. "ANI-0001") lo genera el backend; nunca se envía al crear.
 class Animal {
-  final String id;
-  final String code;
-  final String name;
-  final Sexo sex;
-  final String speciesId;
-  final String? breedId;
-  final DateTime? birthDate;
-  final DateTime? acquisitionDate;
-  final String? origin;
-  final double? initialWeightKg;
-  final double? currentWeightKg;
-  final String healthStatus;
-  final String vaccinationStatus;
-  final String reproductiveStatus;
-  final String status;
-  final String? egressReason;
-  final String? notes;
-  final String? motherId;
-  final String? fatherId;
-  final String? fatherExternal;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  /// Relaciones opcionales resueltas (equivalente a `AnimalWithRelations`).
-  final Species? species;
-  final Breed? breed;
+  final int id;
+  final String codigo;
+  final String? nombre;
+  final String genero;
+  final DateTime? fechaNacimiento;
+  final String? origen;
+  final DateTime? fechaIngreso;
+  final String estado;
+  final int especieId;
+  final int razaId;
+  final int? loteId;
+  final int? potreroId;
+  final int? madreId;
+  final int? padreId;
+  final Especie? especie;
+  final Raza? raza;
+  final String? loteNombre;
 
   const Animal({
     required this.id,
-    required this.code,
-    required this.name,
-    required this.sex,
-    required this.speciesId,
-    this.breedId,
-    this.birthDate,
-    this.acquisitionDate,
-    this.origin,
-    this.initialWeightKg,
-    this.currentWeightKg,
-    required this.healthStatus,
-    required this.vaccinationStatus,
-    required this.reproductiveStatus,
-    required this.status,
-    this.egressReason,
-    this.notes,
-    this.motherId,
-    this.fatherId,
-    this.fatherExternal,
-    required this.createdAt,
-    required this.updatedAt,
-    this.species,
-    this.breed,
+    required this.codigo,
+    required this.genero,
+    required this.estado,
+    required this.especieId,
+    required this.razaId,
+    this.nombre,
+    this.fechaNacimiento,
+    this.origen,
+    this.fechaIngreso,
+    this.loteId,
+    this.potreroId,
+    this.madreId,
+    this.padreId,
+    this.especie,
+    this.raza,
+    this.loteNombre,
   });
 
-  factory Animal.fromJson(Map<String, dynamic> json) => Animal(
-        id: json['id'] as String,
-        code: json['code'] as String,
-        name: json['name'] as String,
-        sex: Sexo.fromJson(json['sex'] as String),
-        speciesId: json['species_id'] as String,
-        breedId: json['breed_id'] as String?,
-        birthDate: _parseDate(json['birth_date']),
-        acquisitionDate: _parseDate(json['acquisition_date']),
-        origin: json['origin'] as String?,
-        initialWeightKg: (json['initial_weight_kg'] as num?)?.toDouble(),
-        currentWeightKg: (json['current_weight_kg'] as num?)?.toDouble(),
-        healthStatus: json['health_status'] as String,
-        vaccinationStatus: json['vaccination_status'] as String,
-        reproductiveStatus: json['reproductive_status'] as String,
-        status: json['status'] as String,
-        egressReason: json['egress_reason'] as String?,
-        notes: json['notes'] as String?,
-        motherId: json['mother_id'] as String?,
-        fatherId: json['father_id'] as String?,
-        fatherExternal: json['father_external'] as String?,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-        species: json['species'] != null
-            ? Species.fromJson(json['species'] as Map<String, dynamic>)
-            : null,
-        breed: json['breed'] != null
-            ? Breed.fromJson(json['breed'] as Map<String, dynamic>)
-            : null,
-      );
+  factory Animal.fromJson(Map<String, dynamic> json) {
+    return Animal(
+      id: json['id'] as int,
+      codigo: json['codigo'] as String,
+      nombre: json['nombre'] as String?,
+      genero: json['genero'] as String,
+      fechaNacimiento: _parseFecha(json['fecha_nacimiento']),
+      origen: json['origen'] as String?,
+      fechaIngreso: _parseFecha(json['fecha_ingreso']),
+      estado: json['estado'] as String? ?? 'Activo',
+      especieId: json['especie_id'] as int,
+      razaId: json['raza_id'] as int,
+      loteId: json['lote_id'] as int?,
+      potreroId: json['potrero_id'] as int?,
+      madreId: json['madre_id'] as int?,
+      padreId: json['padre_id'] as int?,
+      especie: json['especies'] is Map<String, dynamic>
+          ? Especie.fromJson(json['especies'] as Map<String, dynamic>)
+          : null,
+      raza: json['razas'] is Map<String, dynamic>
+          ? Raza.fromJson(json['razas'] as Map<String, dynamic>)
+          : null,
+      loteNombre: (json['lotes_animales'] is Map<String, dynamic>)
+          ? (json['lotes_animales'] as Map<String, dynamic>)['nombre'] as String?
+          : null,
+    );
+  }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'code': code,
-        'name': name,
-        'sex': sex.toJson(),
-        'species_id': speciesId,
-        'breed_id': breedId,
-        'birth_date': birthDate?.toIso8601String(),
-        'acquisition_date': acquisitionDate?.toIso8601String(),
-        'origin': origin,
-        'initial_weight_kg': initialWeightKg,
-        'current_weight_kg': currentWeightKg,
-        'health_status': healthStatus,
-        'vaccination_status': vaccinationStatus,
-        'reproductive_status': reproductiveStatus,
-        'status': status,
-        'egress_reason': egressReason,
-        'notes': notes,
-        'mother_id': motherId,
-        'father_id': fatherId,
-        'father_external': fatherExternal,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
-      };
+  static DateTime? _parseFecha(dynamic valor) {
+    if (valor == null) return null;
+    return DateTime.tryParse(valor as String);
+  }
 
-  static DateTime? _parseDate(dynamic value) =>
-      value == null ? null : DateTime.parse(value as String);
+  String get nombreVisible => (nombre != null && nombre!.isNotEmpty) ? nombre! : codigo;
 }
 
-/// DTO para crear un animal — equivalente a `CreateAnimalDTO` en el proyecto web.
-class CreateAnimalDTO {
-  final String name;
-  final Sexo sex;
-  final String speciesId;
-  final String? breedId;
-  final DateTime? birthDate;
-  final String? notes;
+/// DTO para `POST /api/animales`. `codigo` no existe aquí: el backend lo
+/// autogenera.
+class CrearAnimalDTO {
+  final String? nombre;
+  final String genero;
+  final DateTime? fechaNacimiento;
+  final String? origen;
+  final DateTime? fechaIngreso;
+  final String? estado;
+  final int especieId;
+  final int razaId;
+  final int? loteId;
+  final int? potreroId;
+  final int? madreId;
+  final int? padreId;
 
-  const CreateAnimalDTO({
-    required this.name,
-    required this.sex,
-    required this.speciesId,
-    this.breedId,
-    this.birthDate,
-    this.notes,
+  const CrearAnimalDTO({
+    required this.genero,
+    required this.especieId,
+    required this.razaId,
+    this.nombre,
+    this.fechaNacimiento,
+    this.origen,
+    this.fechaIngreso,
+    this.estado,
+    this.loteId,
+    this.potreroId,
+    this.madreId,
+    this.padreId,
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'sex': sex.toJson(),
-        'species_id': speciesId,
-        'breed_id': breedId,
-        'birth_date': birthDate?.toIso8601String(),
-        'notes': notes,
+        if (nombre != null && nombre!.isNotEmpty) 'nombre': nombre,
+        'genero': genero,
+        if (fechaNacimiento != null)
+          'fecha_nacimiento': fechaNacimiento!.toIso8601String(),
+        if (origen != null && origen!.isNotEmpty) 'origen': origen,
+        if (fechaIngreso != null) 'fecha_ingreso': fechaIngreso!.toIso8601String(),
+        if (estado != null) 'estado': estado,
+        'especie_id': especieId,
+        'raza_id': razaId,
+        if (loteId != null) 'lote_id': loteId,
+        if (potreroId != null) 'potrero_id': potreroId,
+        if (madreId != null) 'madre_id': madreId,
+        if (padreId != null) 'padre_id': padreId,
       };
 }
+
+/// DTO para `PUT /api/animales/:id`. Todo es opcional (actualización
+/// parcial). `causa` es obligatoria cuando `estado` cambia a
+/// Muerto/Vendido (validado también en el backend). `peso`, si se envía,
+/// crea además un registro en `registros_peso` (efecto secundario
+/// confirmado en `animal.service.ts`).
+class ActualizarAnimalDTO {
+  final String? nombre;
+  final String? genero;
+  final DateTime? fechaNacimiento;
+  final String? origen;
+  final DateTime? fechaIngreso;
+  final String? estado;
+  final String? causa;
+  final double? peso;
+  final int? especieId;
+  final int? razaId;
+  final int? loteId;
+  final int? potreroId;
+  final int? madreId;
+  final int? padreId;
+
+  const ActualizarAnimalDTO({
+    this.nombre,
+    this.genero,
+    this.fechaNacimiento,
+    this.origen,
+    this.fechaIngreso,
+    this.estado,
+    this.causa,
+    this.peso,
+    this.especieId,
+    this.razaId,
+    this.loteId,
+    this.potreroId,
+    this.madreId,
+    this.padreId,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (nombre != null) 'nombre': nombre,
+        if (genero != null) 'genero': genero,
+        if (fechaNacimiento != null)
+          'fecha_nacimiento': fechaNacimiento!.toIso8601String(),
+        if (origen != null) 'origen': origen,
+        if (fechaIngreso != null) 'fecha_ingreso': fechaIngreso!.toIso8601String(),
+        if (estado != null) 'estado': estado,
+        if (causa != null) 'causa': causa,
+        if (peso != null) 'peso': peso,
+        if (especieId != null) 'especie_id': especieId,
+        if (razaId != null) 'raza_id': razaId,
+        if (loteId != null) 'lote_id': loteId,
+        if (potreroId != null) 'potrero_id': potreroId,
+        if (madreId != null) 'madre_id': madreId,
+        if (padreId != null) 'padre_id': padreId,
+      };
+}
+
+/// Estados que exigen `causa` al actualizar (validado también en backend).
+const estadosQueRequierenCausa = ['Muerto', 'Vendido'];

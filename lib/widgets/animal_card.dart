@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/animal.dart';
 
-/// Tarjeta de un animal en el listado. Widget "tonto": no llama al
-/// repositorio ni conoce de dónde vienen los datos — solo pinta lo que
-/// recibe y avisa cuando lo tocan.
 class AnimalCard extends StatelessWidget {
   final Animal animal;
   final VoidCallback onTap;
@@ -13,44 +10,29 @@ class AnimalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final especie = animal.especie?.nombre ?? 'Especie #${animal.especieId}';
+    final raza = animal.raza?.nombre ?? 'Raza #${animal.razaId}';
+
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundColor: animal.estado == 'Activo'
+              ? const Color(0xFF3F6B4A).withValues(alpha: 0.15)
+              : Colors.grey.withValues(alpha: 0.2),
           child: Icon(
-            animal.sex.etiqueta == 'Macho' ? Icons.male : Icons.female,
-            color: theme.colorScheme.onPrimaryContainer,
+            animal.genero.toLowerCase().startsWith('h') ? Icons.female : Icons.male,
+            color: animal.estado == 'Activo' ? const Color(0xFF3F6B4A) : Colors.grey,
           ),
         ),
-        title: Text(animal.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${animal.code} · ${animal.species?.displayName ?? animal.speciesId}'),
-        trailing: _EstadoChip(status: animal.status),
+        title: Text(animal.nombreVisible),
+        subtitle: Text('$especie · $raza · ${animal.codigo}'),
+        trailing: Chip(
+          label: Text(animal.estado, style: const TextStyle(fontSize: 12)),
+          visualDensity: VisualDensity.compact,
+        ),
       ),
-    );
-  }
-}
-
-class _EstadoChip extends StatelessWidget {
-  final String status;
-  const _EstadoChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final activo = status == 'activo';
-    final color = activo ? Colors.green : Colors.orange;
-    return Chip(
-      label: Text(
-        activo ? 'Activo' : status,
-        style: TextStyle(color: color.shade900, fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      backgroundColor: color.shade50,
-      side: BorderSide(color: color.shade200),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      visualDensity: VisualDensity.compact,
     );
   }
 }
