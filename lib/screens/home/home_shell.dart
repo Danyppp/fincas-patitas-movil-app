@@ -1,23 +1,33 @@
 import 'package:flutter/material.dart';
 
-import '../../repositories/animal_repository.dart';
-import '../../repositories/reproduction_repository.dart';
+import '../../core/auth_session.dart';
+import '../../repositories/animales/animal_repository.dart';
+import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/produccion/produccion_repository.dart';
+import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../animales/animales_list_screen.dart';
 import '../placeholder/proximamente_screen.dart';
+import '../produccion/produccion_list_screen.dart';
 import '../reproduccion/reproduccion_list_screen.dart';
+import 'cuenta_screen.dart';
 
-/// Navegación base de la app: una barra inferior con los 4 módulos del
-/// proyecto (Animales, Reproducción, Producción, Inventario). Animales y
-/// Reproducción ya tienen pantalla real; Producción e Inventario siguen
-/// como [ProximamenteScreen] hasta que les toque en el cronograma.
+/// Navegación base de la app: barra inferior con los módulos priorizados
+/// de este sprint (Animales, Reproducción, Producción), Inventario como
+/// placeholder, y Cuenta (perfil + cerrar sesión).
 class HomeShell extends StatefulWidget {
   final AnimalRepository animalRepository;
-  final ReproductionRepository reproductionRepository;
+  final CatalogoRepository catalogoRepository;
+  final ReproduccionRepository reproduccionRepository;
+  final ProduccionRepository produccionRepository;
+  final AuthSession session;
 
   const HomeShell({
     super.key,
     required this.animalRepository,
-    required this.reproductionRepository,
+    required this.catalogoRepository,
+    required this.reproduccionRepository,
+    required this.produccionRepository,
+    required this.session,
   });
 
   @override
@@ -30,10 +40,20 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final paginas = [
-      AnimalesListScreen(repository: widget.animalRepository),
-      ReproduccionListScreen(repository: widget.reproductionRepository),
-      const ProximamenteScreen(titulo: 'Producción', icono: Icons.bar_chart_outlined),
+      AnimalesListScreen(
+        repository: widget.animalRepository,
+        catalogoRepository: widget.catalogoRepository,
+      ),
+      ReproduccionListScreen(
+        repository: widget.reproduccionRepository,
+        animalRepository: widget.animalRepository,
+      ),
+      ProduccionListScreen(
+        repository: widget.produccionRepository,
+        animalRepository: widget.animalRepository,
+      ),
       const ProximamenteScreen(titulo: 'Inventario', icono: Icons.inventory_2_outlined),
+      CuentaScreen(session: widget.session),
     ];
 
     return Scaffold(
@@ -46,6 +66,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.favorite_outline), selectedIcon: Icon(Icons.favorite), label: 'Reproducción'),
           NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'Producción'),
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Inventario'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Cuenta'),
         ],
       ),
     );
