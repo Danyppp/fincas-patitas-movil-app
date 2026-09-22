@@ -120,27 +120,11 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
       'Potreros',
       errores,
     );
-    List<Animal> hembras = [];
-    List<Animal> machos = [];
-    try {
-      final pagina = await widget.repository.listar(genero: 'Hembra', estado: 'Todos', limite: 200);
-      hembras = pagina.data.where((a) => actual == null || a.id != actual.id).toList();
-    } catch (e) {
-      errores.add('Animales (Madre): $e');
-    }
-    try {
-      final pagina = await widget.repository.listar(genero: 'Macho', estado: 'Todos', limite: 200);
-      machos = pagina.data.where((a) => actual == null || a.id != actual.id).toList();
-    } catch (e) {
-      errores.add('Animales (Padre): $e');
-    }
 
     setState(() {
       _especies = especies;
       _lotes = lotes;
       _potreros = potreros;
-      _hembras = hembras;
-      _machos = machos;
 
       if (actual != null) {
         _especieSeleccionada = _buscarEnLista(_especies, actual.especieId, (e) => e.id);
@@ -150,12 +134,6 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
         _potreroSeleccionado = actual.potreroId == null
             ? null
             : _buscarEnLista(_potreros, actual.potreroId!, (p) => p.id);
-        _madreSeleccionada = actual.madreId == null
-            ? null
-            : _buscarEnLista(_hembras, actual.madreId!, (a) => a.id);
-        _padreSeleccionado = actual.padreId == null
-            ? null
-            : _buscarEnLista(_machos, actual.padreId!, (a) => a.id);
       }
 
       _error = errores.isEmpty ? null : 'No se pudieron cargar: ${errores.join(' | ')}';
@@ -164,12 +142,77 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
     try {
       if (_especieSeleccionada != null) {
         await _cargarRazas(_especieSeleccionada!.id, preseleccionar: true);
+        // Madre/Padre solo tiene sentido dentro de la MISMA especie (una
+        // gallina no puede ser hija de una vaca) — se cargan filtrados por
+        // especie, igual que las razas.
+        await _cargarGenealogia(_especieSeleccionada!.id, preseleccionar: true);
       }
     } catch (e) {
       setState(() => _error = (_error == null ? '' : '$_error | ') + 'Razas: $e');
     } finally {
       if (mounted) setState(() => _cargandoCatalogos = false);
     }
+  }
+
+  /// Carga las listas de posibles Madre (Hembra) y Padre (Macho) para el
+  /// selector de Genealogía, filtradas por especie: un animal solo puede
+  /// tener madre/padre de su misma especie. Se recarga cada vez que cambia
+  /// la Especie seleccionada en el formulario (igual que las razas).
+  Future<void> _cargarGenealogia(int especieId, {bool preseleccionar = false}) async {
+    final actual = widget.animalExistente;
+    final errores = <String>[];
+    List<Animal> hembras = [];
+    List<Animal> machos = [];
+    try {
+      final pagina = await widget.repository.listar(
+        genero: 'Hembra',
+        estado: 'Todos',
+        especieId: especieId,
+        limite: 200,
+      );
+      hembras = pagina.data.where((a) => actual == null || a.id != actual.id).toList();
+    } catch (e) {
+      errores.add('Animales (Madre): $e');
+    }
+    try {
+      final pagina = await widget.repository.listar(
+        genero: 'Macho',
+        estado: 'Todos',
+        especieId: especieId,
+        limite: 200,
+      );
+      machos = pagina.data.where((a) => actual == null || a.id != actual.id).toList();
+    } catch (e) {
+      errores.add('Animales (Padre): $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _hembras = hembras;
+      _machos = machos;
+
+      if (preseleccionar && actual != null) {
+        _madreSeleccionada = actual.madreId == null
+            ? null
+            : _buscarEnLista(_hembras, actual.madreId!, (a) => a.id);
+        _padreSeleccionado = actual.padreId == null
+            ? null
+            : _buscarEnLista(_machos, actual.padreId!, (a) => a.id);
+      } else {
+        // Cambio manual de especie: si la madre/padre ya elegida ya no
+        // pertenece a la nueva especie, se limpia la selección.
+        if (_madreSeleccionada != null && !_hembras.any((a) => a.id == _madreSeleccionada!.id)) {
+          _madreSeleccionada = null;
+        }
+        if (_padreSeleccionado != null && !_machos.any((a) => a.id == _padreSeleccionado!.id)) {
+          _padreSeleccionado = null;
+        }
+      }
+
+      if (errores.isNotEmpty) {
+        _error = (_error == null ? '' : '$_error | ') + errores.join(' | ');
+      }
+    });
   }
 
   T? _buscarEnLista<T>(List<T> lista, int id, int Function(T) idDe) {
@@ -329,8 +372,15 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                           _especieSeleccionada = v;
                           _razaSeleccionada = null;
                           _razas = [];
+                          _madreSeleccionada = null;
+                          _padreSeleccionado = null;
+                          _hembras = [];
+                          _machos = [];
                         });
-                        if (v != null) _cargarRazas(v.id);
+                        if (v != null) {
+                          _cargarRazas(v.id);
+                          _cargarGenealogia(v.id);
+                        }
                       },
                       validator: (v) => v == null ? 'Selecciona una especie' : null,
                     ),
@@ -397,6 +447,13 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                     const Divider(),
                     const SizedBox(height: 8),
                     const Text('Genealogía (opcional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    if (_especieSeleccionada == null) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Selecciona una especie primero',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     DropdownButtonFormField<Animal?>(
                       initialValue: _madreSeleccionada,
@@ -405,7 +462,9 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                         const DropdownMenuItem<Animal?>(value: null, child: Text('Sin especificar')),
                         ..._hembras.map((a) => DropdownMenuItem<Animal?>(value: a, child: Text('${a.nombreVisible} (${a.codigo})'))),
                       ],
-                      onChanged: (v) => setState(() => _madreSeleccionada = v),
+                      onChanged: _especieSeleccionada == null
+                          ? null
+                          : (v) => setState(() => _madreSeleccionada = v),
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<Animal?>(
@@ -415,7 +474,9 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                         const DropdownMenuItem<Animal?>(value: null, child: Text('Sin especificar')),
                         ..._machos.map((a) => DropdownMenuItem<Animal?>(value: a, child: Text('${a.nombreVisible} (${a.codigo})'))),
                       ],
-                      onChanged: (v) => setState(() => _padreSeleccionado = v),
+                      onChanged: _especieSeleccionada == null
+                          ? null
+                          : (v) => setState(() => _padreSeleccionado = v),
                     ),
                     if (_esEdicion) ...[
                       const SizedBox(height: 24),

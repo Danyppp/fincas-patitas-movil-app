@@ -23,6 +23,24 @@ class AnimalesListScreen extends StatefulWidget {
   State<AnimalesListScreen> createState() => _AnimalesListScreenState();
 }
 
+/// Filtros de estado disponibles en la lista. La etiqueta es lo que ve el
+/// usuario; `valor` es lo que de verdad se manda al backend. "Fallecidos"
+/// se muestra así en la UI, pero el valor real guardado en la base sigue
+/// siendo "Muerto" (mismo criterio que en el formulario de edición).
+class _FiltroEstado {
+  final String etiqueta;
+  final String valor;
+  const _FiltroEstado(this.etiqueta, this.valor);
+}
+
+const _filtrosEstado = [
+  _FiltroEstado('Todos', 'Todos'),
+  _FiltroEstado('Activos', 'Activo'),
+  _FiltroEstado('Inactivos', 'Inactivo'),
+  _FiltroEstado('Fallecidos', 'Muerto'),
+  _FiltroEstado('Vendidos', 'Vendido'),
+];
+
 class _AnimalesListScreenState extends State<AnimalesListScreen> {
   late Future<List<Animal>> _futuro;
   final _buscarCtrl = TextEditingController();
@@ -93,7 +111,7 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _recargar),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
+          preferredSize: const Size.fromHeight(104),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
@@ -115,22 +133,26 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'Activo', label: Text('Activos')),
-                          ButtonSegment(value: 'Todos', label: Text('Todos')),
-                        ],
-                        selected: {_estadoFiltro},
-                        onSelectionChanged: (s) {
-                          setState(() => _estadoFiltro = s.first);
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _filtrosEstado.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final filtro = _filtrosEstado[i];
+                      final seleccionado = _estadoFiltro == filtro.valor;
+                      return FilterChip(
+                        label: Text(filtro.etiqueta),
+                        selected: seleccionado,
+                        onSelected: (_) {
+                          if (seleccionado) return;
+                          setState(() => _estadoFiltro = filtro.valor);
                           _recargar();
                         },
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
