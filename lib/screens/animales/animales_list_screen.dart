@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/animal.dart';
+import '../../models/catalogo/especie.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/especie_visual.dart';
 import '../../widgets/animal_card.dart';
 import 'animal_detail_screen.dart';
 import 'animal_form_screen.dart';
@@ -42,45 +45,78 @@ const _filtrosEstado = [
 ];
 
 class _AnimalesListScreenState extends State<AnimalesListScreen> {
-  late Future<List<Animal>> _futuro;
   final _buscarCtrl = TextEditingController();
   String _estadoFiltro = 'Activo';
+  int? _especieFiltroId; // null = "Todos"
   Timer? _debounce;
+
+  bool _cargando = true;
+  String? _error;
+  List<Animal> _animales = [];
+  List<Especie> _especies = [];
 
   @override
   void initState() {
     super.initState();
-    _futuro = _cargar();
+    _cargarEspecies();
+    _cargar();
   }
 
-  Future<List<Animal>> _cargar() async {
-    final pagina = await widget.repository.listar(
-      estado: _estadoFiltro,
-      buscar: _buscarCtrl.text.trim().isEmpty ? null : _buscarCtrl.text.trim(),
-      limite: 100,
-    );
-    return pagina.data;
+  /// Catálogo de especies para los chips con contador. Se carga una sola
+  /// vez (no cambia con los filtros de estado/búsqueda). Si falla, los
+  /// chips de especie simplemente no aparecen — el listado general sigue
+  /// funcionando igual con el filtro de estado.
+  Future<void> _cargarEspecies() async {
+    try {
+      final especies = await widget.catalogoRepository.listarEspecies();
+      if (!mounted) return;
+      setState(() => _especies = especies);
+    } catch (_) {
+      // silencioso a propósito: no es un dato crítico para poder listar.
+    }
   }
 
-  void _recargar() {
-    // OJO: debe ser un cuerpo de bloque `{ }`, no una función flecha `=>`.
-    // Con `=>` el callback de setState termina *devolviendo* el Future que
-    // produce `_cargar()`, y Flutter lanza "setState() callback argument
-    // returned a Future" en modo debug — esa excepción interrumpe el
-    // setState ANTES de que marque el widget para reconstruirse, así que
-    // `_futuro` se actualiza pero la pantalla nunca se refresca sola
-    // (bug real detectado en pruebas: la búsqueda y el botón de refrescar
-    // no actualizaban la lista por sí solos).
+  Future<void> _cargar() async {
     setState(() {
-      _futuro = _cargar();
+      _cargando = true;
+      _error = null;
     });
+    try {
+      final pagina = await widget.repository.listar(
+        estado: _estadoFiltro,
+        buscar:
+            _buscarCtrl.text.trim().isEmpty ? null : _buscarCtrl.text.trim(),
+        limite: 100,
+      );
+      if (!mounted) return;
+      setState(() {
+        _animales = pagina.data;
+        _cargando = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _cargando = false;
+      });
+    }
   }
+
+  /// Lista ya filtrada por especie (filtro local, no requiere volver a
+  /// pedirle al backend — el estado y la búsqueda sí van al backend).
+  List<Animal> get _animalesFiltrados {
+    if (_especieFiltroId == null) return _animales;
+    return _animales.where((a) => a.especieId == _especieFiltroId).toList();
+  }
+
+  int _contarPorEspecie(int especieId) =>
+      _animales.where((a) => a.especieId == especieId).length;
 
   /// Búsqueda en vivo: espera a que el usuario deje de escribir ~400ms
   /// antes de recargar, para no disparar una petición por cada letra.
   void _onBuscarCambia(String _) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), _recargar);
+    _debounce = Timer(const Duration(milliseconds: 400), _cargar);
   }
 
   @override
@@ -99,7 +135,39 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
         ),
       ),
     );
-    if (creado == true) _recargar();
+    if (creado == true) _cargar();
+  }
+
+  Widget _chip({
+    required String etiqueta,
+    required bool seleccionado,
+    required VoidCallback onTap,
+  }) {
+    return FilterChip(
+      label: Text(
+        etiqueta,
+        style: TextStyle(
+          color: seleccionado ? Colors.white : AppTheme.onSurface,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+      selected: seleccionado,
+      onSelected: (_) => onTap(),
+      backgroundColor: Colors.white,
+      selectedColor: AppTheme.primaryContainer,
+      showCheckmark: false,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: seleccionado
+              ? AppTheme.primaryContainer
+              : AppTheme.outlineVariant,
+          width: 1,
+        ),
+      ),
+    );
   }
 
   @override
@@ -108,10 +176,10 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
       appBar: AppBar(
         title: const Text('Animales'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _recargar),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(104),
+          preferredSize: const Size.fromHeight(156),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
@@ -119,20 +187,66 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
                 TextField(
                   controller: _buscarCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Buscar por nombre o código...',
+                    hintText: 'Buscar por arete (código) o nombre...',
                     prefixIcon: const Icon(Icons.search),
                     isDense: true,
                     filled: true,
                     fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: BorderSide(color: AppTheme.outlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: BorderSide(color: AppTheme.outlineVariant),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: const BorderSide(
+                          color: AppTheme.primaryContainer, width: 2),
+                    ),
                   ),
                   onChanged: _onBuscarCambia,
                   onSubmitted: (_) {
                     _debounce?.cancel();
-                    _recargar();
+                    _cargar();
                   },
                 ),
                 const SizedBox(height: 8),
+                // Fila de especies (chips con contador real, calculado del
+                // lado del cliente sobre los animales ya cargados con el
+                // filtro de estado actual).
+                SizedBox(
+                  height: 36,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _chip(
+                        etiqueta: 'Todos (${_animales.length})',
+                        seleccionado: _especieFiltroId == null,
+                        onTap: () => setState(() => _especieFiltroId = null),
+                      ),
+                      for (final especie in _especies) ...[
+                        const SizedBox(width: 8),
+                        _chip(
+                          etiqueta:
+                              '${emojiEspecie(especie.nombre)} ${especie.nombre} (${_contarPorEspecie(especie.id)})',
+                          seleccionado: _especieFiltroId == especie.id,
+                          onTap: () =>
+                              setState(() => _especieFiltroId = especie.id),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Fila de estado (llama al backend, ya que el filtro de
+                // estado sí se resuelve en la consulta).
                 SizedBox(
                   height: 36,
                   child: ListView.separated(
@@ -142,13 +256,13 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
                     itemBuilder: (context, i) {
                       final filtro = _filtrosEstado[i];
                       final seleccionado = _estadoFiltro == filtro.valor;
-                      return FilterChip(
-                        label: Text(filtro.etiqueta),
-                        selected: seleccionado,
-                        onSelected: (_) {
+                      return _chip(
+                        etiqueta: filtro.etiqueta,
+                        seleccionado: seleccionado,
+                        onTap: () {
                           if (seleccionado) return;
                           setState(() => _estadoFiltro = filtro.valor);
-                          _recargar();
+                          _cargar();
                         },
                       );
                     },
@@ -159,46 +273,45 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
           ),
         ),
       ),
-      body: FutureBuilder<List<Animal>>(
-        future: _futuro,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _ErrorState(mensaje: '${snapshot.error}', onReintentar: _recargar);
-          }
-          final animales = snapshot.data ?? [];
-          if (animales.isEmpty) {
-            return const Center(child: Text('No hay animales registrados todavía.'));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => _recargar(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: animales.length,
-              itemBuilder: (context, i) {
-                final animal = animales[i];
-                return AnimalCard(
-                  animal: animal,
-                  onTap: () async {
-                    final cambio = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => AnimalDetailScreen(
-                          animalId: animal.id,
-                          repository: widget.repository,
-                          catalogoRepository: widget.catalogoRepository,
-                        ),
+      body: _cargando
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _ErrorState(mensaje: _error!, onReintentar: _cargar)
+              : _animalesFiltrados.isEmpty
+                  ? Center(
+                      child: Text(
+                        _especieFiltroId != null || _buscarCtrl.text.isNotEmpty
+                            ? 'No hay animales que coincidan con el filtro.'
+                            : 'No hay animales registrados todavía.',
                       ),
-                    );
-                    if (cambio == true) _recargar();
-                  },
-                );
-              },
-            ),
-          );
-        },
-      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _cargar,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _animalesFiltrados.length,
+                        itemBuilder: (context, i) {
+                          final animal = _animalesFiltrados[i];
+                          return AnimalCard(
+                            animal: animal,
+                            onTap: () async {
+                              final cambio =
+                                  await Navigator.of(context).push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => AnimalDetailScreen(
+                                    animalId: animal.id,
+                                    repository: widget.repository,
+                                    catalogoRepository:
+                                        widget.catalogoRepository,
+                                  ),
+                                ),
+                              );
+                              if (cambio == true) _cargar();
+                            },
+                          );
+                        },
+                      ),
+                    ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirFormularioCreacion,
         icon: const Icon(Icons.add),
@@ -226,7 +339,8 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onReintentar, child: const Text('Reintentar')),
+            FilledButton(
+                onPressed: onReintentar, child: const Text('Reintentar')),
           ],
         ),
       ),
