@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/animal.dart';
@@ -25,6 +27,7 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
   late Future<List<Animal>> _futuro;
   final _buscarCtrl = TextEditingController();
   String _estadoFiltro = 'Activo';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -42,11 +45,29 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
   }
 
   void _recargar() {
-    setState(() => _futuro = _cargar());
+    // OJO: debe ser un cuerpo de bloque `{ }`, no una función flecha `=>`.
+    // Con `=>` el callback de setState termina *devolviendo* el Future que
+    // produce `_cargar()`, y Flutter lanza "setState() callback argument
+    // returned a Future" en modo debug — esa excepción interrumpe el
+    // setState ANTES de que marque el widget para reconstruirse, así que
+    // `_futuro` se actualiza pero la pantalla nunca se refresca sola
+    // (bug real detectado en pruebas: la búsqueda y el botón de refrescar
+    // no actualizaban la lista por sí solos).
+    setState(() {
+      _futuro = _cargar();
+    });
+  }
+
+  /// Búsqueda en vivo: espera a que el usuario deje de escribir ~400ms
+  /// antes de recargar, para no disparar una petición por cada letra.
+  void _onBuscarCambia(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _recargar);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _buscarCtrl.dispose();
     super.dispose();
   }
@@ -87,7 +108,11 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onSubmitted: (_) => _recargar(),
+                  onChanged: _onBuscarCambia,
+                  onSubmitted: (_) {
+                    _debounce?.cancel();
+                    _recargar();
+                  },
                 ),
                 const SizedBox(height: 8),
                 Row(
