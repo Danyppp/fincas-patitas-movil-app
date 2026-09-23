@@ -5,6 +5,7 @@ import '../../models/inventario/categoria_bodega.dart';
 import '../../models/inventario/insumo.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
+import 'movimiento_form_screen.dart';
 
 /// Listado de Inventario (Control de Inventario). Primera versión
 /// funcional, sin ronda de estilos todavía (eso va en el paso 6, igual
@@ -108,6 +109,22 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
   int get _totalItems => _insumos.length;
   int get _totalStockBajo => _insumos.where((i) => i.stockBajo).length;
   int get _totalEnNivel => _totalItems - _totalStockBajo;
+
+  /// Igual que en el diseño original: tocar la tarjeta de un insumo lleva
+  /// directo al registro de movimiento para ese insumo (no hay pantalla
+  /// de detalle aparte en Inventario). Si se registró algo, se recarga
+  /// el listado para reflejar el stock nuevo.
+  Future<void> _abrirRegistroMovimiento(Insumo insumo) async {
+    final registrado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MovimientoFormScreen(
+          insumo: insumo,
+          repository: widget.repository,
+        ),
+      ),
+    );
+    if (registrado == true) _cargar();
+  }
 
   // La búsqueda es 100% local (no llama al backend), así que se filtra al
   // instante con cada letra — no hace falta debounce aquí.
@@ -232,6 +249,7 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                                   return _InsumoTile(
                                     insumo: insumo,
                                     vencimiento: _vencimientoPorInsumo[insumo.id],
+                                    onTap: () => _abrirRegistroMovimiento(insumo),
                                   );
                                 },
                               ),
@@ -246,8 +264,9 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
 class _InsumoTile extends StatelessWidget {
   final Insumo insumo;
   final DateTime? vencimiento;
+  final VoidCallback onTap;
 
-  const _InsumoTile({required this.insumo, this.vencimiento});
+  const _InsumoTile({required this.insumo, required this.onTap, this.vencimiento});
 
   ({Color fondo, Color texto, String etiqueta}) get _estiloEstado {
     switch (insumo.estado) {
@@ -270,7 +289,9 @@ class _InsumoTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,6 +349,7 @@ class _InsumoTile extends StatelessWidget {
               ),
             ],
           ],
+        ),
         ),
       ),
     );
