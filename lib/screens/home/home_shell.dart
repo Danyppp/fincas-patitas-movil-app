@@ -58,6 +58,7 @@ class _HomeShellState extends State<HomeShell> {
       InventarioListScreen(
         repository: widget.insumoRepository,
         catalogoRepository: widget.catalogoRepository,
+        session: widget.session,
       ),
       CuentaScreen(session: widget.session),
     ];

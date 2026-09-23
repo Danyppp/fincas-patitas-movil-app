@@ -1,25 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/auth_session.dart';
 import '../../models/inventario/categoria_bodega.dart';
 import '../../models/inventario/insumo.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/categoria_visual.dart';
 import 'movimiento_form_screen.dart';
 
-/// Listado de Inventario (Control de Inventario). Primera versión
-/// funcional, sin ronda de estilos todavía (eso va en el paso 6, igual
-/// que se hizo con Animales) — el objetivo acá es que todo el flujo de
-/// datos real contra el backend funcione: categorías, búsqueda local,
-/// estados de stock derivados y vencimiento por insumo.
+/// Listado de Inventario (Control de Inventario), siguiendo el mockup de
+/// Stitch (`inventario_y_stock_de_bodega_fincas_y_patitas/screen.png`):
+/// estadísticas resumen, chips de categoría con ícono, tarjetas con
+/// avatar por categoría, pill de estado, barra de stock cuando está bajo,
+/// y vencimiento por insumo (segunda consulta, igual que la genealogía
+/// en Animales).
 class InventarioListScreen extends StatefulWidget {
   final InsumoRepository repository;
   final CatalogoRepository catalogoRepository;
+  final AuthSession session;
 
   const InventarioListScreen({
     super.key,
     required this.repository,
     required this.catalogoRepository,
+    required this.session,
   });
 
   @override
@@ -29,8 +37,13 @@ class InventarioListScreen extends StatefulWidget {
 class _InventarioListScreenState extends State<InventarioListScreen> {
   final _buscarCtrl = TextEditingController();
   int? _categoriaFiltroId; // null = "Todos"
+  Timer? _debounceBusqueda;
 
   bool _cargando = true;
+  // Búsqueda 100% local e instantánea (ver `_onBuscarCambia`), pero se
+  // muestra este breve "recargando" para que la experiencia visual sea
+  // igual que en Animales (donde sí espera una respuesta del backend).
+  bool _buscando = false;
   String? _error;
   List<Insumo> _insumos = [];
   List<CategoriaBodega> _categorias = [];
@@ -120,44 +133,71 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
         builder: (_) => MovimientoFormScreen(
           insumo: insumo,
           repository: widget.repository,
+          session: widget.session,
         ),
       ),
     );
     if (registrado == true) _cargar();
   }
 
-  // La búsqueda es 100% local (no llama al backend), así que se filtra al
-  // instante con cada letra — no hace falta debounce aquí.
-  void _onBuscarCambia(String _) => setState(() {});
+  /// El filtrado en sí es local e instantáneo (el backend no soporta
+  /// `?buscar=` en `/bodega`), pero se replica el mismo debounce visual de
+  /// 400ms que usa Animales, para que la sensación de "recargando" sea
+  /// consistente entre módulos aunque acá no haya una petición real.
+  void _onBuscarCambia(String _) {
+    _debounceBusqueda?.cancel();
+    setState(() => _buscando = true);
+    _debounceBusqueda = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      setState(() => _buscando = false);
+    });
+  }
 
   @override
   void dispose() {
+    _debounceBusqueda?.cancel();
     _buscarCtrl.dispose();
     super.dispose();
   }
 
-  Widget _chip({
+  Widget _chipCategoria({
     required String etiqueta,
+    required IconData icono,
     required bool seleccionado,
     required VoidCallback onTap,
   }) {
     return FilterChip(
+      avatar: Icon(icono, size: 16, color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
       label: Text(etiqueta),
       selected: seleccionado,
       onSelected: (_) => onTap(),
       showCheckmark: false,
+      labelStyle: TextStyle(color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 
-  Widget _estadisticaTile(String etiqueta, int valor) {
+  Widget _estadisticaTile(String etiqueta, int valor, Color color) {
     return Expanded(
-      child: Column(
-        children: [
-          Text('$valor', style: Theme.of(context).textTheme.headlineSmall),
-          Text(etiqueta, style: Theme.of(context).textTheme.bodySmall),
-        ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        ),
+        child: Column(
+          children: [
+            Text('$valor',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(color: color, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text(etiqueta, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
       ),
     );
   }
@@ -166,23 +206,63 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inventario'),
+        // El título ocupa 2 líneas ("BODEGA PRINCIPAL" + "Control de
+        // Inventario"), y el alto por defecto del AppBar (56) solo alcanza
+        // para una — por eso la primera línea se veía cortada arriba. Se
+        // sube el alto para que el título quepa completo y con aire.
+        toolbarHeight: 64,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('BODEGA PRINCIPAL',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
+            const Text('Control de Inventario'),
+          ],
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
+          preferredSize: const Size.fromHeight(148),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
               children: [
+                Row(
+                  children: [
+                    _estadisticaTile('Total Ítems', _totalItems, AppTheme.onSurface),
+                    _estadisticaTile('Stock Bajo', _totalStockBajo, AppTheme.tertiary),
+                    _estadisticaTile('En Nivel', _totalEnNivel, AppTheme.secondary),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 TextField(
                   controller: _buscarCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Buscar insumo...',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
                     isDense: true,
-                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: BorderSide(color: AppTheme.outlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: BorderSide(color: AppTheme.outlineVariant),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderSide: const BorderSide(
+                          color: AppTheme.primaryContainer, width: 2),
+                    ),
                   ),
                   onChanged: _onBuscarCambia,
                 ),
@@ -192,8 +272,9 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
-                      _chip(
+                      _chipCategoria(
                         etiqueta: 'Todos',
+                        icono: Icons.grid_view_rounded,
                         seleccionado: _categoriaFiltroId == null,
                         onTap: () {
                           setState(() => _categoriaFiltroId = null);
@@ -202,8 +283,9 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                       ),
                       for (final categoria in _categorias) ...[
                         const SizedBox(width: 8),
-                        _chip(
+                        _chipCategoria(
                           etiqueta: categoria.nombre,
+                          icono: iconoCategoriaBodega(categoria.nombre),
                           seleccionado: _categoriaFiltroId == categoria.id,
                           onTap: () {
                             setState(() => _categoriaFiltroId = categoria.id);
@@ -219,44 +301,27 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
           ),
         ),
       ),
-      body: _cargando
+      body: _cargando || _buscando
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _ErrorState(mensaje: _error!, onReintentar: _cargar)
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          _estadisticaTile('Total ítems', _totalItems),
-                          _estadisticaTile('Stock bajo', _totalStockBajo),
-                          _estadisticaTile('En nivel', _totalEnNivel),
-                        ],
+              : _insumosFiltrados.isEmpty
+                  ? const Center(child: Text('No hay insumos que coincidan.'))
+                  : RefreshIndicator(
+                      onRefresh: _cargar,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _insumosFiltrados.length,
+                        itemBuilder: (context, i) {
+                          final insumo = _insumosFiltrados[i];
+                          return _InsumoTile(
+                            insumo: insumo,
+                            vencimiento: _vencimientoPorInsumo[insumo.id],
+                            onTap: () => _abrirRegistroMovimiento(insumo),
+                          );
+                        },
                       ),
                     ),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: _insumosFiltrados.isEmpty
-                          ? const Center(child: Text('No hay insumos que coincidan.'))
-                          : RefreshIndicator(
-                              onRefresh: _cargar,
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(12),
-                                itemCount: _insumosFiltrados.length,
-                                itemBuilder: (context, i) {
-                                  final insumo = _insumosFiltrados[i];
-                                  return _InsumoTile(
-                                    insumo: insumo,
-                                    vencimiento: _vencimientoPorInsumo[insumo.id],
-                                    onTap: () => _abrirRegistroMovimiento(insumo),
-                                  );
-                                },
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
     );
   }
 }
@@ -268,88 +333,139 @@ class _InsumoTile extends StatelessWidget {
 
   const _InsumoTile({required this.insumo, required this.onTap, this.vencimiento});
 
-  ({Color fondo, Color texto, String etiqueta}) get _estiloEstado {
-    switch (insumo.estado) {
-      case EstadoStock.agotado:
-        return (fondo: Colors.red.withValues(alpha: 0.12), texto: Colors.red.shade700, etiqueta: 'Agotado');
-      case EstadoStock.bajo:
-        return (fondo: Colors.orange.withValues(alpha: 0.15), texto: Colors.orange.shade800, etiqueta: 'Bajo');
-      case EstadoStock.normal:
-        return (fondo: Colors.green.withValues(alpha: 0.12), texto: Colors.green.shade700, etiqueta: 'Normal');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final estilo = _estiloEstado;
+    final agotado = insumo.estado == EstadoStock.agotado;
+    final bajo = insumo.estado == EstadoStock.bajo;
+    final estilo = estiloEstadoStock(agotado, bajo);
+    final coloresCategoria = colorCategoriaBodega(insumo.categoria?.nombre);
     final textTheme = Theme.of(context).textTheme;
-    final subtitulo = insumo.descripcion != null && insumo.descripcion!.isNotEmpty
-        ? '${insumo.categoria?.nombre ?? ''} • ${insumo.descripcion}'
-        : insumo.categoria?.nombre ?? '';
+
+    // Barra de nivel de stock: solo se muestra cuando el stock ya está en
+    // Bajo o Agotado (igual que en el diseño), como referencia visual de
+    // qué tan cerca está del mínimo configurado.
+    final proporcion = insumo.stockMinimo > 0
+        ? (insumo.stockActual / (insumo.stockMinimo * 2)).clamp(0.0, 1.0)
+        : 0.0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(insumo.nombre, style: textTheme.titleMedium),
-                      if (subtitulo.isNotEmpty)
-                        Text(subtitulo, style: textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: estilo.fondo,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    estilo.etiqueta,
-                    style: textTheme.labelMedium?.copyWith(color: estilo.texto),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text('Stock: ${insumo.stockActual.toStringAsFixed(0)} ${insumo.unidadMedida}'),
-                const SizedBox(width: 12),
-                Text('Mínimo: ${insumo.stockMinimo.toStringAsFixed(0)}',
-                    style: textTheme.bodySmall),
-              ],
-            ),
-            if (vencimiento != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Vence: ${DateFormat('dd/MM/yyyy', 'es').format(vencimiento!)}',
-                style: textTheme.bodySmall,
-              ),
-            ],
-            if (insumo.reposicionUrgente) ...[
-              const SizedBox(height: 6),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
-                  const SizedBox(width: 4),
-                  Text('Reposición urgente',
-                      style: textTheme.labelSmall?.copyWith(color: Colors.red.shade700)),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: coloresCategoria.fondo,
+                    child: Icon(iconoCategoriaBodega(insumo.categoria?.nombre),
+                        color: coloresCategoria.icono, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(insumo.nombre, style: textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        if (insumo.descripcion != null && insumo.descripcion!.isNotEmpty)
+                          Text(insumo.descripcion!, style: textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: estilo.fondo,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                    ),
+                    child: Text(estilo.etiqueta,
+                        style: textTheme.labelMedium?.copyWith(color: estilo.texto)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Stock Disponible', style: textTheme.labelSmall),
+                        Text('${insumo.stockActual.toStringAsFixed(0)} ${insumo.unidadMedida}',
+                            style: textTheme.headlineSmall?.copyWith(
+                              color: agotado || bajo ? estilo.texto : AppTheme.onSurface,
+                            )),
+                      ],
+                    ),
+                  ),
+                  if (vencimiento != null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Vencimiento', style: textTheme.labelSmall),
+                        Row(
+                          children: [
+                            const Icon(Icons.event_outlined, size: 14, color: AppTheme.outline),
+                            const SizedBox(width: 4),
+                            Text(DateFormat('MM/yyyy').format(vencimiento!),
+                                style: textTheme.bodyMedium),
+                          ],
+                        ),
+                      ],
+                    )
+                  else
+                    Text('Mínimo: ${insumo.stockMinimo.toStringAsFixed(0)}',
+                        style: textTheme.bodySmall),
+                ],
+              ),
+              if (bajo || agotado) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  child: LinearProgressIndicator(
+                    value: proporcion,
+                    minHeight: 6,
+                    backgroundColor: AppTheme.surfaceContainerHigh,
+                    color: estilo.texto,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                    ),
+                    child: Text(
+                      insumo.categoria?.nombre ?? 'Sin categoría',
+                      style: textTheme.labelSmall?.copyWith(color: AppTheme.onSurface, letterSpacing: 0),
+                    ),
+                  ),
+                  if (insumo.reposicionUrgente)
+                    Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.tertiary),
+                        const SizedBox(width: 4),
+                        Text('Reposición urgente',
+                            style: textTheme.labelSmall?.copyWith(color: AppTheme.tertiary)),
+                      ],
+                    ),
                 ],
               ),
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
