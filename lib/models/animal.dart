@@ -131,10 +131,19 @@ class CrearAnimalDTO {
 }
 
 /// DTO para `PUT /api/animales/:id`. Todo es opcional (actualización
-/// parcial). `causa` es obligatoria cuando `estado` cambia a
-/// Muerto/Vendido (validado también en el backend). `peso`, si se envía,
-/// crea además un registro en `registros_peso` (efecto secundario
-/// confirmado en `animal.service.ts`).
+/// parcial), EXCEPTO Lote/Potrero/Madre/Padre: esos 4 siempre se envían
+/// (incluso en `null`), porque este formulario reemplaza el estado
+/// completo de esas relaciones — si el usuario elige "Sin asignar" /
+/// "Sin especificar" para quitarlos, el backend necesita recibir el
+/// `null` explícito para de verdad limpiar la relación (antes se omitía
+/// el campo y el backend nunca se enteraba del cambio).
+///
+/// `peso`, si se envía, crea además un registro en `registros_peso`
+/// (efecto secundario confirmado en `animal.service.ts`).
+///
+/// Nota: el campo "causa" (para Muerto/Vendido) se retiró — la tabla
+/// `animales` real no tiene ninguna columna para guardarla, así que se
+/// decidió no exigirla por ahora (ver decisiones-diseno-vs-backend-animales.md).
 class ActualizarAnimalDTO {
   final String? nombre;
   final String? genero;
@@ -142,7 +151,6 @@ class ActualizarAnimalDTO {
   final String? origen;
   final DateTime? fechaIngreso;
   final String? estado;
-  final String? causa;
   final double? peso;
   final int? especieId;
   final int? razaId;
@@ -158,7 +166,6 @@ class ActualizarAnimalDTO {
     this.origen,
     this.fechaIngreso,
     this.estado,
-    this.causa,
     this.peso,
     this.especieId,
     this.razaId,
@@ -176,16 +183,14 @@ class ActualizarAnimalDTO {
         if (origen != null) 'origen': origen,
         if (fechaIngreso != null) 'fecha_ingreso': fechaIngreso!.toIso8601String(),
         if (estado != null) 'estado': estado,
-        if (causa != null) 'causa': causa,
         if (peso != null) 'peso': peso,
         if (especieId != null) 'especie_id': especieId,
         if (razaId != null) 'raza_id': razaId,
-        if (loteId != null) 'lote_id': loteId,
-        if (potreroId != null) 'potrero_id': potreroId,
-        if (madreId != null) 'madre_id': madreId,
-        if (padreId != null) 'padre_id': padreId,
+        // Estos 4 SIEMPRE se envían (incluso null) para poder limpiar la
+        // relación desde el formulario. Ver comentario de la clase.
+        'lote_id': loteId,
+        'potrero_id': potreroId,
+        'madre_id': madreId,
+        'padre_id': padreId,
       };
 }
-
-/// Estados que exigen `causa` al actualizar (validado también en backend).
-const estadosQueRequierenCausa = ['Muerto', 'Vendido'];

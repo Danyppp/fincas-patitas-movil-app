@@ -278,6 +278,25 @@ class AppTheme {
         side: const BorderSide(color: onSurfaceVariant, width: 2),
       ),
 
+      // Chips (filtros de Estado y Especie en el listado de Animales):
+      // blanco con borde sutil inactivo, verde sólido + texto blanco
+      // seleccionado, forma pill — según el token `Filter Chips` de
+      // DESIGN.md. El color del texto según selección se define en cada
+      // pantalla (el tema solo deja la base consistente para toda la app).
+      chipTheme: ChipThemeData(
+        backgroundColor: surfaceContainerLowest,
+        selectedColor: primaryContainer,
+        disabledColor: surfaceContainerHigh,
+        checkmarkColor: onPrimary,
+        showCheckmark: false,
+        labelStyle: textTheme.labelMedium?.copyWith(color: onSurface),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(color: onPrimary),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: const StadiumBorder(
+            side: BorderSide(color: outlineVariant, width: 1)),
+        side: const BorderSide(color: outlineVariant, width: 1),
+      ),
+
       snackBarTheme: SnackBarThemeData(
         backgroundColor: inverseSurface,
         contentTextStyle:

@@ -79,12 +79,23 @@ class MockAnimalRepository implements AnimalRepository {
   @override
   Future<Map<String, dynamic>> obtenerHistorial(int id) async {
     await Future.delayed(const Duration(milliseconds: 150));
+    // Misma forma que el backend real: { animal, historial: {...} }
+    // (ver AnimalController.getHistorial en el backend).
+    Animal? animal;
+    try {
+      animal = _animales.firstWhere((a) => a.id == id);
+    } catch (_) {
+      animal = null;
+    }
     return {
-      'eventosSanitarios': [],
-      'produccionLeche': [],
-      'registrosPeso': [],
-      'seguimientoGestacion': [],
-      'lineaDeTiempo': [],
+      'animal': animal,
+      'historial': {
+        'eventosSanitarios': [],
+        'produccionLeche': [],
+        'registrosPeso': [],
+        'seguimientoGestacion': [],
+        'lineaDeTiempo': [],
+      },
     };
   }
 
