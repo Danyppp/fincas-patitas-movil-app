@@ -3,22 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/auth_session.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../animales/animales_list_screen.dart';
-import '../placeholder/proximamente_screen.dart';
+import '../inventario/inventario_list_screen.dart';
 import '../produccion/produccion_list_screen.dart';
 import '../reproduccion/reproduccion_list_screen.dart';
 import 'cuenta_screen.dart';
 
 /// Navegación base de la app: barra inferior con los módulos priorizados
-/// de este sprint (Animales, Reproducción, Producción), Inventario como
-/// placeholder, y Cuenta (perfil + cerrar sesión).
+/// de este sprint (Animales, Reproducción, Producción, Inventario) y
+/// Cuenta (perfil + cerrar sesión).
 class HomeShell extends StatefulWidget {
   final AnimalRepository animalRepository;
   final CatalogoRepository catalogoRepository;
   final ReproduccionRepository reproduccionRepository;
   final ProduccionRepository produccionRepository;
+  final InsumoRepository insumoRepository;
   final AuthSession session;
 
   const HomeShell({
@@ -27,6 +29,7 @@ class HomeShell extends StatefulWidget {
     required this.catalogoRepository,
     required this.reproduccionRepository,
     required this.produccionRepository,
+    required this.insumoRepository,
     required this.session,
   });
 
@@ -52,7 +55,11 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.produccionRepository,
         animalRepository: widget.animalRepository,
       ),
-      const ProximamenteScreen(titulo: 'Inventario', icono: Icons.inventory_2_outlined),
+      InventarioListScreen(
+        repository: widget.insumoRepository,
+        catalogoRepository: widget.catalogoRepository,
+        session: widget.session,
+      ),
       CuentaScreen(session: widget.session),
     ];
 
