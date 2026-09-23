@@ -54,6 +54,7 @@ class _MovimientoFormScreenState extends State<MovimientoFormScreen> {
   String? _motivo = 'Compra';
   double _cantidad = 1;
   bool _guardando = false;
+  bool _eliminando = false;
   String? _error;
 
   bool get _esEntrada => _tipo == 'Entrada';
@@ -116,6 +117,56 @@ class _MovimientoFormScreenState extends State<MovimientoFormScreen> {
     }
   }
 
+  /// Pide confirmación antes de eliminar el insumo por completo
+  /// (`DELETE /bodega/:id`). Se pone acá y no en el listado porque
+  /// Inventario no tiene una pantalla de detalle aparte — este formulario,
+  /// al abrirse ya con el insumo puntual, es el único lugar natural para
+  /// esa acción.
+  Future<void> _confirmarEliminar() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar insumo'),
+        content: Text(
+          '¿Seguro que quieres eliminar "${widget.insumo.nombre}"? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    await _eliminar();
+  }
+
+  Future<void> _eliminar() async {
+    setState(() {
+      _eliminando = true;
+      _error = null;
+    });
+    try {
+      await widget.repository.eliminar(widget.insumo.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } on NetworkException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = 'Error inesperado: $e');
+    } finally {
+      if (mounted) setState(() => _eliminando = false);
+    }
+  }
+
   Widget _botonCantidad(String etiqueta, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -145,26 +196,28 @@ class _MovimientoFormScreenState extends State<MovimientoFormScreen> {
         : (_esEntrada ? const Color(0xFF2E7D32) : AppTheme.tertiary);
 
     return Scaffold(
+      // "BODEGA PRINCIPAL" se movió al body (ver más abajo): un título de
+      // 2 líneas en el AppBar seguía viéndose cortado arriba en pantallas
+      // reales aun fijando `toolbarHeight`, así que se evita ese patrón.
       appBar: AppBar(
-        // Mismo ajuste que en el listado: título de 2 líneas necesita más
-        // alto que el default del AppBar (56) para no cortarse arriba.
-        toolbarHeight: 64,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('BODEGA PRINCIPAL',
-                style: textTheme.labelSmall
-                    ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
-            const Text('Registrar Movimiento'),
-          ],
-        ),
+        title: const Text('Registrar Movimiento'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Eliminar insumo',
+            onPressed: _guardando || _eliminando ? null : _confirmarEliminar,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('BODEGA PRINCIPAL',
+                style: textTheme.labelSmall
+                    ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
             // Insumo (fijo — viene de la tarjeta que se tocó en el listado).
             Container(
               padding: const EdgeInsets.all(14),
@@ -354,7 +407,7 @@ class _MovimientoFormScreenState extends State<MovimientoFormScreen> {
 
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _guardando ? null : _guardar,
+              onPressed: _guardando || _eliminando ? null : _guardar,
               icon: _guardando
                   ? const SizedBox(
                       height: 18,
@@ -368,7 +421,9 @@ class _MovimientoFormScreenState extends State<MovimientoFormScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: _guardando ? null : () => Navigator.of(context).pop(false),
+                onPressed: _guardando || _eliminando
+                    ? null
+                    : () => Navigator.of(context).pop(false),
                 child: const Text('Cancelar'),
               ),
             ),

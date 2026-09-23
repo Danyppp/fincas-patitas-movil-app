@@ -41,6 +41,25 @@ IconData iconoCategoriaBodega(String? nombre) {
   );
 }
 
+/// Etiqueta corta descriptiva por categoría, tomada del mockup de Stitch
+/// para "Registrar Insumo Nuevo" (ej. "Salud y Vacunas" para Medicamentos).
+/// Es puramente decorativa — el backend solo guarda el `nombre` de la
+/// categoría — y para categorías que no vienen en el mockup original
+/// (como "Elementos finca", agregada por Dany) cae en un texto genérico.
+String etiquetaCategoriaBodega(String? nombre) {
+  final n = (nombre ?? '').toLowerCase();
+  if (n.contains('medic') || n.contains('sanit') || n.contains('vacun')) {
+    return 'Salud y Vacunas';
+  }
+  if (n.contains('aliment') || n.contains('nutri') || n.contains('concentrado')) {
+    return 'Nutrición y Forraje';
+  }
+  if (n.contains('herramient') || n.contains('equipo')) {
+    return 'Mantenimiento';
+  }
+  return 'Uso General';
+}
+
 /// Estilo de la pill de estado de stock, con la misma terminología del
 /// diseño de Stitch ("Óptimo" en vez de "Normal").
 ({Color fondo, Color texto, String etiqueta}) estiloEstadoStock(

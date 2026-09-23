@@ -10,6 +10,7 @@ import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/categoria_visual.dart';
+import 'insumo_form_screen.dart';
 import 'movimiento_form_screen.dart';
 
 /// Listado de Inventario (Control de Inventario), siguiendo el mockup de
@@ -140,6 +141,18 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
     if (registrado == true) _cargar();
   }
 
+  Future<void> _abrirRegistroInsumo() async {
+    final creado = await Navigator.of(context).push<Insumo>(
+      MaterialPageRoute(
+        builder: (_) => InsumoFormScreen(
+          repository: widget.repository,
+          catalogoRepository: widget.catalogoRepository,
+        ),
+      ),
+    );
+    if (creado != null) _cargar();
+  }
+
   /// El filtrado en sí es local e instantáneo (el backend no soporta
   /// `?buscar=` en `/bodega`), pero se replica el mismo debounce visual de
   /// 400ms que usa Animales, para que la sensación de "recargando" sea
@@ -205,33 +218,31 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // "BODEGA PRINCIPAL" se sacó del AppBar.title: un título de 2 líneas
+      // ahí es frágil (depende del alto exacto del toolbar y se seguía
+      // viendo cortado arriba en pantallas reales aun con toolbarHeight
+      // explícito). Vive mejor como rótulo dentro del `bottom`, donde hay
+      // aire de sobra y no depende de esa medida.
       appBar: AppBar(
-        // El título ocupa 2 líneas ("BODEGA PRINCIPAL" + "Control de
-        // Inventario"), y el alto por defecto del AppBar (56) solo alcanza
-        // para una — por eso la primera línea se veía cortada arriba. Se
-        // sube el alto para que el título quepa completo y con aire.
-        toolbarHeight: 64,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('BODEGA PRINCIPAL',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelSmall
-                    ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
-            const Text('Control de Inventario'),
-          ],
-        ),
+        title: const Text('Control de Inventario'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(148),
+          preferredSize: const Size.fromHeight(168),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
               children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('BODEGA PRINCIPAL',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     _estadisticaTile('Total Ítems', _totalItems, AppTheme.onSurface),
@@ -310,7 +321,9 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                   : RefreshIndicator(
                       onRefresh: _cargar,
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(12),
+                        // Espacio extra abajo para que el FAB "Nuevo
+                        // insumo" no tape la última tarjeta del listado.
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 76),
                         itemCount: _insumosFiltrados.length,
                         itemBuilder: (context, i) {
                           final insumo = _insumosFiltrados[i];
@@ -322,6 +335,17 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                         },
                       ),
                     ),
+      // ~30% más chico que un FloatingActionButton.extended por defecto
+      // (alto/ícono/texto reducidos), a pedido de Dany.
+      floatingActionButton: SizedBox(
+        height: 40,
+        child: FloatingActionButton.extended(
+          onPressed: _abrirRegistroInsumo,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Nuevo insumo', style: TextStyle(fontSize: 13)),
+          extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+      ),
     );
   }
 }
