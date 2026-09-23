@@ -2,6 +2,8 @@ import '../../models/catalogo/especie.dart';
 import '../../models/catalogo/lote_animal.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../models/catalogo/raza.dart';
+import '../../models/inventario/categoria_bodega.dart';
+import '../../models/inventario/lote_inventario.dart';
 import 'catalogo_repository.dart';
 
 class MockCatalogoRepository implements CatalogoRepository {
@@ -29,6 +31,30 @@ class MockCatalogoRepository implements CatalogoRepository {
     Potrero(id: 2, nombre: 'Potrero Sur', capacidadAnimales: 15, estado: 'Disponible'),
   ];
 
+  final _categoriasBodega = const [
+    CategoriaBodega(id: 1, nombre: 'Medicamentos'),
+    CategoriaBodega(id: 2, nombre: 'Alimentos'),
+  ];
+
+  final List<LoteInventario> _lotesInventario = [
+    LoteInventario(
+      id: 1,
+      insumoId: 1,
+      numeroLote: 'L-2026-01',
+      fechaVencimiento: DateTime.now().add(const Duration(days: 45)),
+      cantidadDisponible: 40,
+      costoUnitario: 12000,
+    ),
+    LoteInventario(
+      id: 2,
+      insumoId: 2,
+      numeroLote: 'L-2026-02',
+      fechaVencimiento: DateTime.now().add(const Duration(days: 10)),
+      cantidadDisponible: 3,
+      costoUnitario: 85000,
+    ),
+  ];
+
   @override
   Future<List<Especie>> listarEspecies() async {
     await Future.delayed(const Duration(milliseconds: 200));
@@ -52,5 +78,29 @@ class MockCatalogoRepository implements CatalogoRepository {
   Future<List<Potrero>> listarPotreros() async {
     await Future.delayed(const Duration(milliseconds: 200));
     return _potreros;
+  }
+
+  @override
+  Future<List<CategoriaBodega>> listarCategoriasBodega() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return _categoriasBodega;
+  }
+
+  @override
+  Future<List<LoteInventario>> listarLotesInventario({
+    int? insumoId,
+    int? venceEnDias,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    var filtrados = _lotesInventario.where((l) {
+      if (insumoId != null && l.insumoId != insumoId) return false;
+      if (venceEnDias != null) {
+        final limite = DateTime.now().add(Duration(days: venceEnDias));
+        if (l.fechaVencimiento.isAfter(limite)) return false;
+      }
+      return true;
+    }).toList();
+    filtrados.sort((a, b) => a.fechaVencimiento.compareTo(b.fechaVencimiento));
+    return filtrados;
   }
 }

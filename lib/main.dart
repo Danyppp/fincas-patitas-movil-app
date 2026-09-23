@@ -14,6 +14,9 @@ import 'repositories/auth/mock_auth_repository.dart';
 import 'repositories/catalogo/api_catalogo_repository.dart';
 import 'repositories/catalogo/catalogo_repository.dart';
 import 'repositories/catalogo/mock_catalogo_repository.dart';
+import 'repositories/inventario/api_insumo_repository.dart';
+import 'repositories/inventario/insumo_repository.dart';
+import 'repositories/inventario/mock_insumo_repository.dart';
 import 'repositories/produccion/api_produccion_repository.dart';
 import 'repositories/produccion/mock_produccion_repository.dart';
 import 'repositories/produccion/produccion_repository.dart';
@@ -25,8 +28,8 @@ import 'screens/home/home_shell.dart';
 
 Future<void> main() async {
   // Necesario antes de usar DateFormat con locale 'es' (fechas de
-  // Reproducción, Animales y Producción) — sin esto, DateFormat lanza
-  // LocaleDataException al primer build.
+  // Reproducción, Animales, Producción e Inventario) — sin esto,
+  // DateFormat lanza LocaleDataException al primer build.
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es');
 
@@ -69,6 +72,10 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
       ? ApiProduccionRepository(client: _apiClient)
       : MockProduccionRepository();
 
+  late final InsumoRepository _insumoRepository = AppConfig.useRealApi
+      ? ApiInsumoRepository(client: _apiClient)
+      : MockInsumoRepository();
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +107,7 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
                   catalogoRepository: _catalogoRepository,
                   reproduccionRepository: _reproduccionRepository,
                   produccionRepository: _produccionRepository,
+                  insumoRepository: _insumoRepository,
                   session: widget.session,
                 )
               : LoginScreen(

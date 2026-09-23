@@ -3,6 +3,8 @@ import '../../models/catalogo/especie.dart';
 import '../../models/catalogo/lote_animal.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../models/catalogo/raza.dart';
+import '../../models/inventario/categoria_bodega.dart';
+import '../../models/inventario/lote_inventario.dart';
 import 'catalogo_repository.dart';
 
 class ApiCatalogoRepository implements CatalogoRepository {
@@ -39,5 +41,27 @@ class ApiCatalogoRepository implements CatalogoRepository {
     // desactualizado en este punto.
     final data = await client.get('/ubicaciones-potreros') as List<dynamic>;
     return data.map((p) => Potrero.fromJson(p as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<List<CategoriaBodega>> listarCategoriasBodega() async {
+    final data = await client.get('/categorias-bodega') as List<dynamic>;
+    return data
+        .map((c) => CategoriaBodega.fromJson(c as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<LoteInventario>> listarLotesInventario({
+    int? insumoId,
+    int? venceEnDias,
+  }) async {
+    final data = await client.get('/lotes-inventario', query: {
+      if (insumoId != null) 'insumo_id': insumoId,
+      if (venceEnDias != null) 'vence_en_dias': venceEnDias,
+    }) as List<dynamic>;
+    return data
+        .map((l) => LoteInventario.fromJson(l as Map<String, dynamic>))
+        .toList();
   }
 }
