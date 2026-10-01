@@ -9,9 +9,10 @@ class ApiProduccionRepository implements ProduccionRepository {
   ApiProduccionRepository({required this.client});
 
   @override
-  Future<List<ProduccionLeche>> listarLeche({int? animalId}) async {
+  Future<List<ProduccionLeche>> listarLeche({int? animalId, int? loteId}) async {
     final data = await client.get('/produccion-leche', query: {
       if (animalId != null) 'animal_id': animalId,
+      if (loteId != null) 'lote_id': loteId,
     }) as List<dynamic>;
     return data.map((e) => ProduccionLeche.fromJson(e as Map<String, dynamic>)).toList();
   }
@@ -34,9 +35,10 @@ class ApiProduccionRepository implements ProduccionRepository {
   }
 
   @override
-  Future<List<ProduccionHuevos>> listarHuevos({int? loteId}) async {
+  Future<List<ProduccionHuevos>> listarHuevos({int? loteId, int? animalId}) async {
     final data = await client.get('/produccion-huevos', query: {
       if (loteId != null) 'lote_id': loteId,
+      if (animalId != null) 'animal_id': animalId,
     }) as List<dynamic>;
     return data.map((e) => ProduccionHuevos.fromJson(e as Map<String, dynamic>)).toList();
   }
