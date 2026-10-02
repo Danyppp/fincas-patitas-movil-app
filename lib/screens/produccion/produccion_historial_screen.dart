@@ -13,6 +13,16 @@ import 'produccion_detalle_dialog.dart';
 /// mostrarlos marcados) con `incluir_eliminados=true`, y el rango de
 /// fechas se filtra en el cliente — mismo patrón que ya se usa en el
 /// Dashboard para "hoy".
+///
+/// 2026-10-02 (ajuste de estilos, última ronda): la `TabBar` de Leche/
+/// Huevos se reemplaza por los mismos bloques seleccionables (ícono +
+/// unidad + check) que ya se usan en "Registrar Producción Nueva", para que
+/// toda la sección de Producción se vea consistente. Las filas del
+/// historial pasan de ser tarjetas separadas a una lista continua con
+/// fondo alternado rosita/blanco — igual estética que el "Historial
+/// reciente" del Dashboard, pero SIN el efecto de hover: aquí el color de
+/// cada fila es fijo, no cambia al pasar el cursor (pedido explícito del
+/// usuario, para diferenciar esta vista de la del Dashboard).
 class ProduccionHistorialScreen extends StatefulWidget {
   final ProduccionRepository repository;
 
@@ -94,6 +104,7 @@ class _ProduccionHistorialScreenState extends State<ProduccionHistorialScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tabIndex = _tabController.index;
     final formatoRango = DateFormat('d MMM yyyy', 'es');
     String textoRango;
     try {
@@ -110,18 +121,35 @@ class _ProduccionHistorialScreenState extends State<ProduccionHistorialScreen>
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial completo'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.water_drop_outlined), text: 'Leche'),
-            Tab(icon: Icon(Icons.egg_outlined), text: 'Huevos'),
-          ],
-        ),
-      ),
+      appBar: AppBar(title: const Text('Historial completo')),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _BloqueTipoProduccion(
+                    icono: Icons.water_drop,
+                    etiqueta: 'Leche',
+                    unidad: 'Litros (L)',
+                    seleccionado: tabIndex == 0,
+                    onTap: () => _tabController.animateTo(0),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _BloqueTipoProduccion(
+                    icono: Icons.egg,
+                    etiqueta: 'Huevos',
+                    unidad: 'Unidades',
+                    seleccionado: tabIndex == 1,
+                    onTap: () => _tabController.animateTo(1),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -169,6 +197,98 @@ class _ProduccionHistorialScreenState extends State<ProduccionHistorialScreen>
   }
 }
 
+/// Bloque seleccionable de "Tipo de producción" — idéntico en espíritu al
+/// de `produccion_list_screen.dart` (ícono + unidad + check, piel sin
+/// seleccionar / verde seleccionado); se duplica a propósito porque es una
+/// pantalla independiente.
+class _BloqueTipoProduccion extends StatelessWidget {
+  final IconData icono;
+  final String etiqueta;
+  final String unidad;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  const _BloqueTipoProduccion({
+    required this.icono,
+    required this.etiqueta,
+    required this.unidad,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  static const _pielFondo = Color(0xFFF6DFCB);
+  static const _pielIcono = Color(0xFFB9784A);
+  static const _pielBorde = Color(0xFFEAD0B4);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorFondoIcono = seleccionado
+        ? AppTheme.primaryContainer.withValues(alpha: 0.5)
+        : _pielFondo;
+    final colorIcono = seleccionado ? AppTheme.primary : _pielIcono;
+    final colorBorde = seleccionado ? AppTheme.primary : _pielBorde;
+
+    return Material(
+      color: seleccionado
+          ? AppTheme.primaryContainer.withValues(alpha: 0.12)
+          : Colors.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            border: Border.all(color: colorBorde, width: seleccionado ? 2 : 1),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                        color: colorFondoIcono, shape: BoxShape.circle),
+                    child: Icon(icono, color: colorIcono, size: 22),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(etiqueta,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(unidad,
+                      style: TextStyle(color: AppTheme.outline, fontSize: 12)),
+                ],
+              ),
+              if (seleccionado)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: const BoxDecoration(
+                        color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.check_circle,
+                        color: AppTheme.primary, size: 15),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Colores de fila alternados (rosita/blanco) — iguales a los del
+/// "Historial reciente" del Dashboard, pero aquí NO cambian al pasar el
+/// cursor (pedido explícito, 2026-10-02): son fijos por posición.
+const _colorFilaRosa = Color(0xFFFCEEEF);
+const _colorFilaBlanca = Colors.white;
+
 class _ChipEliminado extends StatelessWidget {
   final DateTime eliminadoEn;
   final String? eliminadoPorNombre;
@@ -189,6 +309,52 @@ class _ChipEliminado extends StatelessWidget {
   }
 }
 
+/// Fila plana de historial con fondo alternado fijo (sin Card, sin hover) —
+/// estilo del mockup de Stitch del historial de hoy aplicado aquí al
+/// historial completo.
+class _FilaHistorialPlana extends StatelessWidget {
+  final bool filaRosa;
+  final IconData icono;
+  final Color colorIconoFondo;
+  final Color colorIcono;
+  final String titulo;
+  final TextStyle? estiloTitulo;
+  final Widget subtitulo;
+  final VoidCallback onTap;
+  final bool isThreeLine;
+
+  const _FilaHistorialPlana({
+    required this.filaRosa,
+    required this.icono,
+    required this.colorIconoFondo,
+    required this.colorIcono,
+    required this.titulo,
+    required this.subtitulo,
+    required this.onTap,
+    this.estiloTitulo,
+    this.isThreeLine = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: filaRosa ? _colorFilaRosa : _colorFilaBlanca,
+      child: ListTile(
+        onTap: onTap,
+        isThreeLine: isThreeLine,
+        leading: CircleAvatar(
+          backgroundColor: colorIconoFondo,
+          child: Icon(icono, color: colorIcono, size: 20),
+        ),
+        title: Text(titulo, style: estiloTitulo),
+        subtitle: subtitulo,
+        trailing:
+            const Icon(Icons.chevron_right, color: AppTheme.outline, size: 18),
+      ),
+    );
+  }
+}
+
 class _ListaHistorialLeche extends StatelessWidget {
   final List<ProduccionLeche> registros;
 
@@ -203,47 +369,39 @@ class _ListaHistorialLeche extends StatelessWidget {
     final ordenados = [...registros]
       ..sort((a, b) => b.registradoEn.compareTo(a.registradoEn));
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 12),
       itemCount: ordenados.length,
       itemBuilder: (context, i) {
         final r = ordenados[i];
         final origen = r.esPorLote
             ? (r.loteNombre ?? 'Lote #${r.loteId}')
             : (r.animal?.nombreVisible ?? 'Animal #${r.animalId}');
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          color: r.estaEliminado ? AppTheme.surfaceContainerHigh : null,
-          child: ListTile(
-            onTap: () => mostrarDetalleLeche(context, r),
-            leading: Icon(
-              r.esPorLote ? Icons.groups : Icons.pets,
-              color:
-                  r.estaEliminado ? AppTheme.outline : const Color(0xFF3F6B4A),
-            ),
-            title: Text(
-              '${r.litros} L · $origen',
-              style: r.estaEliminado
-                  ? const TextStyle(
-                      decoration: TextDecoration.lineThrough,
-                      color: AppTheme.outline)
-                  : null,
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    '${r.jornada ?? 'Sin jornada'} · ${formato.format(r.registradoEn.toLocal())}'),
-                if (r.estaEliminado)
-                  _ChipEliminado(
-                      eliminadoEn: r.eliminadoEn!,
-                      eliminadoPorNombre: r.eliminadoPorNombre),
-              ],
-            ),
-            // Indica que la fila se puede tocar para ver el detalle
-            // (2026-10-02: antes no había ninguna señal visual de esto).
-            trailing: const Icon(Icons.chevron_right, color: AppTheme.outline),
-            isThreeLine: r.estaEliminado,
+        return _FilaHistorialPlana(
+          filaRosa: i.isEven,
+          icono: r.esPorLote ? Icons.groups : Icons.pets,
+          colorIconoFondo: r.estaEliminado
+              ? AppTheme.surfaceContainerHigh
+              : AppTheme.primaryContainer.withValues(alpha: 0.5),
+          colorIcono: r.estaEliminado ? AppTheme.outline : AppTheme.primary,
+          titulo: '${r.litros} L · $origen',
+          estiloTitulo: r.estaEliminado
+              ? const TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                  color: AppTheme.outline)
+              : null,
+          subtitulo: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  '${r.jornada ?? 'Sin jornada'} · ${formato.format(r.registradoEn.toLocal())}'),
+              if (r.estaEliminado)
+                _ChipEliminado(
+                    eliminadoEn: r.eliminadoEn!,
+                    eliminadoPorNombre: r.eliminadoPorNombre),
+            ],
           ),
+          isThreeLine: r.estaEliminado,
+          onTap: () => mostrarDetalleLeche(context, r),
         );
       },
     );
@@ -265,7 +423,7 @@ class _ListaHistorialHuevos extends StatelessWidget {
     final ordenados = [...registros]
       ..sort((a, b) => b.registradoEn.compareTo(a.registradoEn));
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 12),
       itemCount: ordenados.length,
       itemBuilder: (context, i) {
         final r = ordenados[i];
@@ -274,40 +432,35 @@ class _ListaHistorialHuevos extends StatelessWidget {
             : (r.animalId != null
                 ? (r.animal?.nombreVisible ?? 'Animal #${r.animalId}')
                 : null);
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          color: r.estaEliminado ? AppTheme.surfaceContainerHigh : null,
-          child: ListTile(
-            onTap: () => mostrarDetalleHuevos(context, r),
-            leading: Icon(
-              r.esPorLote ? Icons.groups : Icons.egg,
-              color:
-                  r.estaEliminado ? AppTheme.outline : const Color(0xFF3F6B4A),
-            ),
-            title: Text(
-              r.cantidadRotos > 0
-                  ? '${r.cantidad} huevos (${r.cantidadRotos} rotos)'
-                  : '${r.cantidad} huevos',
-              style: r.estaEliminado
-                  ? const TextStyle(
-                      decoration: TextDecoration.lineThrough,
-                      color: AppTheme.outline)
-                  : null,
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    '${origen != null ? '$origen · ' : ''}${formato.format(r.registradoEn.toLocal())}'),
-                if (r.estaEliminado)
-                  _ChipEliminado(
-                      eliminadoEn: r.eliminadoEn!,
-                      eliminadoPorNombre: r.eliminadoPorNombre),
-              ],
-            ),
-            trailing: const Icon(Icons.chevron_right, color: AppTheme.outline),
-            isThreeLine: r.estaEliminado,
+        return _FilaHistorialPlana(
+          filaRosa: i.isEven,
+          icono: r.esPorLote ? Icons.groups : Icons.egg,
+          colorIconoFondo: r.estaEliminado
+              ? AppTheme.surfaceContainerHigh
+              : const Color(0xFFF6DFCB),
+          colorIcono:
+              r.estaEliminado ? AppTheme.outline : const Color(0xFFB9784A),
+          titulo: r.cantidadRotos > 0
+              ? '${r.cantidad} huevos (${r.cantidadRotos} rotos)'
+              : '${r.cantidad} huevos',
+          estiloTitulo: r.estaEliminado
+              ? const TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                  color: AppTheme.outline)
+              : null,
+          subtitulo: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  '${origen != null ? '$origen · ' : ''}${formato.format(r.registradoEn.toLocal())}'),
+              if (r.estaEliminado)
+                _ChipEliminado(
+                    eliminadoEn: r.eliminadoEn!,
+                    eliminadoPorNombre: r.eliminadoPorNombre),
+            ],
           ),
+          isThreeLine: r.estaEliminado,
+          onTap: () => mostrarDetalleHuevos(context, r),
         );
       },
     );

@@ -224,24 +224,19 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                           icono: Icons.alt_route,
                           texto: 'Modalidad de registro'),
                       const SizedBox(height: 8),
-                      SegmentedButton<String>(
-                        style: SegmentedButton.styleFrom(
-                          selectedBackgroundColor: AppTheme.primaryContainer,
-                          selectedForegroundColor: Colors.white,
-                        ),
-                        segments: const [
-                          ButtonSegment(
-                              value: 'lote',
-                              label: Text('Por lote'),
-                              icon: Icon(Icons.groups)),
-                          ButtonSegment(
-                              value: 'animal',
-                              label: Text('Por animal'),
-                              icon: Icon(Icons.pets)),
+                      _ModalidadPill(
+                        seleccionado: _modalidad,
+                        opciones: const [
+                          _OpcionModalidad(
+                              valor: 'lote',
+                              etiqueta: 'Por lote',
+                              icono: Icons.groups),
+                          _OpcionModalidad(
+                              valor: 'animal',
+                              etiqueta: 'Por animal',
+                              icono: Icons.pets),
                         ],
-                        selected: {_modalidad},
-                        onSelectionChanged: (s) =>
-                            setState(() => _modalidad = s.first),
+                        onChanged: (v) => setState(() => _modalidad = v),
                       ),
                       const SizedBox(height: 16),
                       _SeccionLabel(
@@ -297,26 +292,30 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    _SeccionLabel(
-                        icono: Icons.schedule, texto: 'Turno exclusivo'),
+                    // Jornada ARRIBA de la fecha (punto 4 del pedido de
+                    // estilos, 2026-10-02) — bloques Mañana/Tarde sin
+                    // mostrar horario, mismo lenguaje visual piel/verde
+                    // que los bloques de Leche/Huevos de la pantalla
+                    // anterior.
+                    _SeccionLabel(icono: Icons.wb_twilight, texto: 'Jornada'),
                     const SizedBox(height: 8),
-                    SegmentedButton<String>(
-                      style: SegmentedButton.styleFrom(
-                        selectedBackgroundColor: AppTheme.primaryContainer,
-                        selectedForegroundColor: Colors.white,
-                      ),
-                      segments: jornadasValidas
-                          .map((j) => ButtonSegment(
-                                value: j,
-                                label: Text(j),
-                                icon: Icon(j == 'Mañana'
-                                    ? Icons.wb_twilight
-                                    : Icons.wb_sunny),
-                              ))
-                          .toList(),
-                      selected: {_jornada},
-                      onSelectionChanged: (s) =>
-                          setState(() => _jornada = s.first),
+                    Row(
+                      children: [
+                        for (var i = 0; i < jornadasValidas.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(
+                            child: _BloqueJornada(
+                              icono: jornadasValidas[i] == 'Mañana'
+                                  ? Icons.wb_sunny_outlined
+                                  : Icons.wb_twilight,
+                              etiqueta: jornadasValidas[i],
+                              seleccionado: _jornada == jornadasValidas[i],
+                              onTap: () =>
+                                  setState(() => _jornada = jornadasValidas[i]),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
                     _SeccionLabel(
@@ -324,10 +323,14 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                         texto: 'Fecha de registro'),
                     const SizedBox(height: 8),
                     // Solo lectura — ver comentario de `_fecha` arriba.
+                    // Tono más claro (2026-10-02): antes usaba
+                    // `AppTheme.surfaceContainerHigh` a toda opacidad, que
+                    // en este tema se ve muy rosado — se deja un relleno
+                    // neutro y claro en su lugar.
                     InputDecorator(
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: AppTheme.surfaceContainerHigh,
+                        fillColor: const Color(0xFFF7F4F1),
                         suffixIcon: !_esEdicion
                             ? const Padding(
                                 padding: EdgeInsets.only(right: 12),
@@ -448,6 +451,9 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                           const InputDecoration(alignLabelWithHint: true),
                     ),
                     const SizedBox(height: 8),
+                    // Resumen rediseñado estilo Stitch (punto 9, 2026-10-02):
+                    // pastilla "Verificación", campos en tarjetas Rubro/Turno
+                    // y Lote destino, y el total resaltado en verde.
                     Card(
                       color: AppTheme.surfaceContainerLow,
                       child: Padding(
@@ -456,24 +462,38 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              children: const [
-                                Icon(Icons.assignment_turned_in,
+                              children: [
+                                const Icon(Icons.assignment_turned_in,
                                     color: AppTheme.primary, size: 20),
-                                SizedBox(width: 8),
-                                Text('Resumen del registro',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text('Resumen del Registro',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                                const _InsigniaVerificacion(),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _FilaResumen(etiqueta: 'Turno', valor: _jornada),
-                            _FilaResumen(
+                            Row(
+                              children: [
+                                Expanded(
+                                    child: _CampoResumen(
+                                        etiqueta: 'Rubro', valor: 'Leche')),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: _CampoResumen(
+                                        etiqueta: 'Turno', valor: _jornada)),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _CampoResumen(
                               etiqueta: _modalidad == 'lote'
-                                  ? 'Lote destino'
+                                  ? 'Lote Destino'
                                   : 'Animal',
                               valor: _destinoTexto,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 10),
@@ -487,9 +507,9 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Volumen a asentar:'),
+                                  const Text('Volumen a Asentar:'),
                                   Text(
-                                      '${_litrosActuales.toStringAsFixed(1)} L',
+                                      '${_litrosActuales.toStringAsFixed(1)} Litros',
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: AppTheme.primary)),
@@ -515,6 +535,15 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : Text(_esEdicion ? 'Guardar cambios' : 'Registrar'),
+                    ),
+                    const SizedBox(height: 10),
+                    // "Cancelar y volver" (punto 9, 2026-10-02) — cierra la
+                    // pantalla sin guardar nada.
+                    OutlinedButton(
+                      onPressed: _guardando
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar y volver'),
                     ),
                   ],
                 ),
@@ -542,24 +571,212 @@ class _SeccionLabel extends StatelessWidget {
   }
 }
 
-class _FilaResumen extends StatelessWidget {
-  final String etiqueta;
+/// Una opción dentro de la píldora de "Modalidad de registro".
+class _OpcionModalidad {
   final String valor;
+  final String etiqueta;
+  final IconData icono;
 
-  const _FilaResumen({required this.etiqueta, required this.valor});
+  const _OpcionModalidad(
+      {required this.valor, required this.etiqueta, required this.icono});
+}
+
+/// Selector de modalidad en forma de píldora flotante, estilo Stitch
+/// (2026-10-02, punto 1 del pedido de estilos): un solo contorno
+/// redondeado de extremo a extremo, con la opción activa resaltada en
+/// verde con check y la inactiva en texto neutro — reemplaza el
+/// `SegmentedButton` genérico de Material.
+class _ModalidadPill extends StatelessWidget {
+  final String seleccionado;
+  final List<_OpcionModalidad> opciones;
+  final ValueChanged<String> onChanged;
+
+  const _ModalidadPill(
+      {required this.seleccionado,
+      required this.opciones,
+      required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: opciones.map((o) {
+          final activo = o.valor == seleccionado;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(o.valor),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: activo ? AppTheme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      activo ? Icons.check_circle : o.icono,
+                      size: 16,
+                      color: activo ? Colors.white : AppTheme.outline,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      o.etiqueta,
+                      style: TextStyle(
+                        color: activo ? Colors.white : AppTheme.outline,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Bloque de jornada (Mañana/Tarde), sin mostrar el rango de horas —
+/// mismo lenguaje visual piel/verde de los bloques de Leche/Huevos de
+/// `produccion_list_screen.dart` (2026-10-02, punto 4 del pedido de
+/// estilos), para que toda la sección de registro se vea consistente.
+class _BloqueJornada extends StatelessWidget {
+  final IconData icono;
+  final String etiqueta;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  const _BloqueJornada({
+    required this.icono,
+    required this.etiqueta,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  static const _pielFondo = Color(0xFFF6DFCB);
+  static const _pielIcono = Color(0xFFB9784A);
+  static const _pielBorde = Color(0xFFEAD0B4);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorFondoIcono = seleccionado
+        ? AppTheme.primaryContainer.withValues(alpha: 0.5)
+        : _pielFondo;
+    final colorIcono = seleccionado ? AppTheme.primary : _pielIcono;
+    final colorBorde = seleccionado ? AppTheme.primary : _pielBorde;
+
+    return Material(
+      color: seleccionado
+          ? AppTheme.primaryContainer.withValues(alpha: 0.12)
+          : Colors.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            border: Border.all(color: colorBorde, width: seleccionado ? 2 : 1),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                        color: colorFondoIcono, shape: BoxShape.circle),
+                    child: Icon(icono, color: colorIcono, size: 18),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(etiqueta,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14)),
+                ],
+              ),
+              if (seleccionado)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(1),
+                    decoration: const BoxDecoration(
+                        color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.check_circle,
+                        color: AppTheme.primary, size: 14),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pastilla "Verificación" del encabezado del resumen final, estilo Stitch.
+class _InsigniaVerificacion extends StatelessWidget {
+  const _InsigniaVerificacion();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCE8B2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Text(
+        'Verificación',
+        style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF8A6A1E)),
+      ),
+    );
+  }
+}
+
+/// Campo del resumen final (etiqueta arriba, valor abajo), presentado
+/// dentro de su propia tarjeta clara — estilo Stitch de "Rubro" / "Turno" /
+/// "Lote Destino" (2026-10-02, punto 9 del pedido de estilos).
+class _CampoResumen extends StatelessWidget {
+  final String etiqueta;
+  final String valor;
+
+  const _CampoResumen({required this.etiqueta, required this.valor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(etiqueta, style: TextStyle(color: AppTheme.outline)),
-          Flexible(
-              child: Text(valor,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontWeight: FontWeight.w600))),
+          Text(etiqueta,
+              style: TextStyle(color: AppTheme.outline, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(valor,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );

@@ -32,6 +32,15 @@ import 'produccion_list_screen.dart';
 ///   también muestra los registros eliminados hoy (con la leyenda
 ///   "Eliminado el ... por ..."), aprovechando el borrado lógico agregado
 ///   en el backend.
+/// - 2026-10-02 (tercera ronda, estilos Stitch): las tarjetas de Leche y
+///   Huevos pasan de ir una al lado de la otra a ir apiladas, de ancho
+///   completo, cada una con su desglose Mañana/Tarde calculado en el
+///   cliente a partir de la `jornada` de cada registro (no hay endpoint ni
+///   columna nueva de por medio — es la misma data que ya se trae para los
+///   totales). "Eventos productivos" se corrió debajo de las dos tarjetas.
+///   El "Historial reciente" ahora alterna fondo rosado/blanco por fila,
+///   con el efecto de intercambiar esos dos colores al pasar el cursor
+///   (solo tiene efecto con mouse — en pantallas táctiles no hay "hover").
 class ProduccionDashboardScreen extends StatefulWidget {
   final ProduccionRepository repository;
   final AnimalRepository animalRepository;
@@ -185,6 +194,21 @@ class _ProduccionDashboardScreenState extends State<ProduccionDashboardScreen> {
           _indicadoresAyer!.huevos.totalUnidades.toDouble());
     }
 
+    // Desglose Mañana/Tarde calculado en el cliente a partir de la
+    // `jornada` de cada registro activo de hoy (punto 3 y 4 del reporte de
+    // pruebas, 2026-10-02) — no depende de ningún endpoint nuevo.
+    double _sumaLeche(String jornada) => (_resumen?.registrosLeche ?? [])
+        .where((r) => r.jornada == jornada)
+        .fold<double>(0, (s, r) => s + r.litros);
+    int _sumaHuevos(String jornada) => (_resumen?.registrosHuevos ?? [])
+        .where((r) => r.jornada == jornada)
+        .fold<int>(0, (s, r) => s + r.cantidadBuenos + r.cantidadRotos);
+
+    final lecheManana = _sumaLeche('Mañana');
+    final lecheTarde = _sumaLeche('Tarde');
+    final huevosManana = _sumaHuevos('Mañana');
+    final huevosTarde = _sumaHuevos('Tarde');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Producción'),
@@ -221,10 +245,59 @@ class _ProduccionDashboardScreenState extends State<ProduccionDashboardScreen> {
                       const SizedBox(height: 16),
                       _BotonRegistrarHoy(onPressed: _abrirRegistro),
                       const SizedBox(height: 16),
-                      _TarjetasResumenHoy(
-                        resumen: _resumen!,
-                        variacionLeche: variacionLeche,
-                        variacionHuevos: variacionHuevos,
+                      _TarjetaProduccionJornada(
+                        icono: Icons.water_drop,
+                        titulo: 'Leche Diaria Total',
+                        valor:
+                            '${_resumen!.totalLitrosLeche.toStringAsFixed(1)} Litros',
+                        variacion: variacionLeche,
+                        jornadas: [
+                          _DatoJornada(
+                            icono: Icons.wb_sunny_outlined,
+                            etiqueta: 'Mañana',
+                            texto: '${lecheManana.toStringAsFixed(0)} L',
+                            fraccion: _resumen!.totalLitrosLeche == 0
+                                ? 0
+                                : lecheManana / _resumen!.totalLitrosLeche,
+                            color: AppTheme.primary,
+                          ),
+                          _DatoJornada(
+                            icono: Icons.wb_twilight,
+                            etiqueta: 'Tarde',
+                            texto: '${lecheTarde.toStringAsFixed(0)} L',
+                            fraccion: _resumen!.totalLitrosLeche == 0
+                                ? 0
+                                : lecheTarde / _resumen!.totalLitrosLeche,
+                            color: const Color(0xFFCE8A3D),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _TarjetaProduccionJornada(
+                        icono: Icons.egg,
+                        titulo: 'Huevos Recolectados',
+                        valor: '${_resumen!.totalHuevosHoy} Unid.',
+                        variacion: variacionHuevos,
+                        jornadas: [
+                          _DatoJornada(
+                            icono: Icons.wb_sunny_outlined,
+                            etiqueta: 'Mañana',
+                            texto: '$huevosManana',
+                            fraccion: _resumen!.totalHuevosHoy == 0
+                                ? 0
+                                : huevosManana / _resumen!.totalHuevosHoy,
+                            color: AppTheme.primary,
+                          ),
+                          _DatoJornada(
+                            icono: Icons.wb_twilight,
+                            etiqueta: 'Tarde',
+                            texto: '$huevosTarde',
+                            fraccion: _resumen!.totalHuevosHoy == 0
+                                ? 0
+                                : huevosTarde / _resumen!.totalHuevosHoy,
+                            color: const Color(0xFFCE8A3D),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       _EventosProductivos(
@@ -392,93 +465,91 @@ class _BotonRegistrarHoy extends StatelessWidget {
   }
 }
 
-class _TarjetasResumenHoy extends StatelessWidget {
-  final ResumenProduccionHoy resumen;
-  final double? variacionLeche;
-  final double? variacionHuevos;
+/// Un dato de jornada (Mañana/Tarde) dentro de una tarjeta de producción:
+/// ícono, etiqueta, valor ya formateado como texto, y la fracción (0..1)
+/// que representa del total del día — usada para la barra de progreso.
+class _DatoJornada {
+  final IconData icono;
+  final String etiqueta;
+  final String texto;
+  final double fraccion;
+  final Color color;
 
-  const _TarjetasResumenHoy({
-    required this.resumen,
-    required this.variacionLeche,
-    required this.variacionHuevos,
+  const _DatoJornada({
+    required this.icono,
+    required this.etiqueta,
+    required this.texto,
+    required this.fraccion,
+    required this.color,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _TarjetaIndicador(
-            icono: Icons.water_drop,
-            titulo: 'Leche hoy',
-            valor: '${resumen.totalLitrosLeche.toStringAsFixed(1)} L',
-            subtitulo: '${resumen.registrosLeche.length} '
-                '${resumen.registrosLeche.length == 1 ? 'registro' : 'registros'} hoy',
-            variacion: variacionLeche,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _TarjetaIndicador(
-            icono: Icons.egg,
-            titulo: 'Huevos hoy',
-            valor: '${resumen.totalHuevosHoy}',
-            subtitulo: '${resumen.registrosHuevos.length} '
-                '${resumen.registrosHuevos.length == 1 ? 'registro' : 'registros'} hoy'
-                '${resumen.totalHuevosRotos > 0 ? ' · ${resumen.totalHuevosRotos} rotos' : ''}',
-            variacion: variacionHuevos,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-class _TarjetaIndicador extends StatelessWidget {
+/// Tarjeta de producción (Leche o Huevos) de ancho completo, con el total
+/// del día, la variación vs ayer como pastilla, y el desglose Mañana/Tarde
+/// con una barra de progreso por cada jornada — estilo del mockup de
+/// Stitch "control_y_m_tricas_de_producci_n" (2026-10-02, tercera ronda).
+class _TarjetaProduccionJornada extends StatelessWidget {
   final IconData icono;
   final String titulo;
   final String valor;
-  final String? subtitulo;
   final double? variacion;
+  final List<_DatoJornada> jornadas;
 
-  const _TarjetaIndicador({
+  const _TarjetaProduccionJornada({
     required this.icono,
     required this.titulo,
     required this.valor,
     required this.variacion,
-    this.subtitulo,
+    required this.jornadas,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icono, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(titulo,
-                      style: TextStyle(color: AppTheme.outline, fontSize: 13)),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryContainer.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icono, color: AppTheme.primary, size: 18),
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titulo,
+                          style:
+                              TextStyle(color: AppTheme.outline, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(valor,
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                _EtiquetaVariacionPill(variacion: variacion),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(valor,
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            if (subtitulo != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(subtitulo!,
-                    style: TextStyle(color: AppTheme.outline, fontSize: 12)),
-              ),
-            const SizedBox(height: 6),
-            _EtiquetaVariacion(variacion: variacion),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                for (var i = 0; i < jornadas.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(child: _ChipJornada(dato: jornadas[i])),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -486,31 +557,102 @@ class _TarjetaIndicador extends StatelessWidget {
   }
 }
 
-class _EtiquetaVariacion extends StatelessWidget {
+class _ChipJornada extends StatelessWidget {
+  final _DatoJornada dato;
+
+  const _ChipJornada({required this.dato});
+
+  @override
+  Widget build(BuildContext context) {
+    final double fraccion = dato.fraccion.clamp(0.0, 1.0).toDouble();
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: dato.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(dato.icono, size: 15, color: dato.color),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  dato.etiqueta,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: dato.color,
+                      fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(dato.texto,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fraccion,
+              minHeight: 5,
+              backgroundColor: dato.color.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation(dato.color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pastilla de variación vs ayer (fondo verde/rojo claro con flecha),
+/// reemplaza el texto plano anterior — así la tarjeta se parece más al
+/// mockup de Stitch, donde el "+8% vs ayer" va en una pastilla arriba a la
+/// derecha de la tarjeta.
+class _EtiquetaVariacionPill extends StatelessWidget {
   final double? variacion;
 
-  const _EtiquetaVariacion({required this.variacion});
+  const _EtiquetaVariacionPill({required this.variacion});
 
   @override
   Widget build(BuildContext context) {
     if (variacion == null) {
-      return const Text('Sin datos de ayer',
-          style: TextStyle(fontSize: 12, color: Colors.grey));
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Sin datos de ayer',
+            style: TextStyle(fontSize: 11, color: Colors.grey)),
+      );
     }
     final esPositivo = variacion! >= 0;
-    final color = esPositivo ? Colors.green[700] : Colors.red[700];
+    final color = esPositivo ? Colors.green[700]! : Colors.red[700]!;
     final icono = esPositivo ? Icons.arrow_upward : Icons.arrow_downward;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icono, size: 14, color: color),
-        const SizedBox(width: 2),
-        Text(
-          '${variacion!.abs().toStringAsFixed(0)}% vs ayer',
-          style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w600),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icono, size: 13, color: color),
+          const SizedBox(width: 2),
+          Text(
+            '${variacion!.abs().toStringAsFixed(0)}% vs ayer',
+            style: TextStyle(
+                fontSize: 11, color: color, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -580,6 +722,10 @@ class _EventosProductivos extends StatelessWidget {
   }
 }
 
+/// Colores de fila alternados del historial, estilo Stitch (rosita/blanco).
+const _colorFilaRosa = Color(0xFFFCEEEF);
+const _colorFilaBlanca = Colors.white;
+
 class _HistorialReciente extends StatelessWidget {
   final List<ProduccionLeche> lecheHoyTodos;
   final List<ProduccionHuevos> huevosHoyTodos;
@@ -602,8 +748,9 @@ class _HistorialReciente extends StatelessWidget {
     final recientes = combinados.take(8).toList();
 
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -612,48 +759,96 @@ class _HistorialReciente extends StatelessWidget {
             const SizedBox(height: 8),
             if (recientes.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: Text('Sin registros todavía hoy.',
                     style: TextStyle(color: AppTheme.outline)),
               )
             else
-              ...recientes.map(
-                (item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  onTap: item.onTap == null ? null : () => item.onTap!(context),
-                  leading: Icon(item.icono,
-                      color:
-                          item.eliminado ? AppTheme.outline : AppTheme.primary),
-                  title: Text(
-                    item.titulo,
-                    style: item.eliminado
-                        ? const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: AppTheme.outline)
-                        : null,
-                  ),
-                  subtitle: item.eliminado
-                      ? Text(
-                          'Eliminado · ${item.subtitulo}',
-                          style: TextStyle(
-                              color: Colors.red[700],
-                              fontWeight: FontWeight.w600),
-                        )
-                      : Text(item.subtitulo),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(formato.format(item.fecha.toLocal())),
-                      if (item.onTap != null) ...[
-                        const SizedBox(width: 2),
-                        const Icon(Icons.chevron_right,
-                            color: AppTheme.outline, size: 18),
-                      ],
-                    ],
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < recientes.length; i++)
+                      _FilaHistorial(
+                          item: recientes[i], indice: i, formato: formato),
+                  ],
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila del historial reciente con fondo alternado (rosita/blanco, estilo
+/// Stitch) y efecto de "hover" que intercambia esos dos colores (punto 6
+/// del pedido de estilos, 2026-10-02). El intercambio solo se ve en mouse
+/// (web/escritorio) — en una pantalla táctil no existe "pasar el cursor
+/// por encima", así que en el celular la fila simplemente conserva su
+/// color alternado normal.
+class _FilaHistorial extends StatefulWidget {
+  final _ItemHistorial item;
+  final int indice;
+  final DateFormat formato;
+
+  const _FilaHistorial(
+      {required this.item, required this.indice, required this.formato});
+
+  @override
+  State<_FilaHistorial> createState() => _FilaHistorialState();
+}
+
+class _FilaHistorialState extends State<_FilaHistorial> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final esFilaRosa = widget.indice.isEven;
+    // Color base según la posición; si el mouse está encima, se usa el
+    // color contrario (rosita <-> blanco).
+    final color = _hover
+        ? (esFilaRosa ? _colorFilaBlanca : _colorFilaRosa)
+        : (esFilaRosa ? _colorFilaRosa : _colorFilaBlanca);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        color: color,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          onTap: item.onTap == null ? null : () => item.onTap!(context),
+          leading: Icon(item.icono,
+              color: item.eliminado ? AppTheme.outline : AppTheme.primary),
+          title: Text(
+            item.titulo,
+            style: item.eliminado
+                ? const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    color: AppTheme.outline)
+                : null,
+          ),
+          subtitle: item.eliminado
+              ? Text(
+                  'Eliminado · ${item.subtitulo}',
+                  style: TextStyle(
+                      color: Colors.red[700], fontWeight: FontWeight.w600),
+                )
+              : Text(item.subtitulo),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.formato.format(item.fecha.toLocal())),
+              if (item.onTap != null) ...[
+                const SizedBox(width: 2),
+                const Icon(Icons.chevron_right,
+                    color: AppTheme.outline, size: 18),
+              ],
+            ],
+          ),
         ),
       ),
     );
