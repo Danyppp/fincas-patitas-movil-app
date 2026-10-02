@@ -44,7 +44,14 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
   /// (`registro_produccion_formulario`, modo por defecto "batch").
   String _modalidad = 'lote';
   String _jornada = 'Mañana';
-  DateTime _fecha = DateTime.now();
+
+  /// Fecha del registro: NUNCA editable por el usuario (corrección
+  /// 2026-09-30, punto 1 — re-aplicada 2026-10-01 porque esta pantalla se
+  /// había quedado con una versión vieja). Para un registro nuevo siempre
+  /// es "ahora"; en edición se conserva la fecha original tal cual quedó
+  /// guardada, convertida a hora local (`.toLocal()`) para que un registro
+  /// creado cerca de la medianoche no se muestre con el día equivocado.
+  late final DateTime _fecha;
 
   bool _cargando = true;
   bool _guardando = false;
@@ -56,12 +63,12 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
   void initState() {
     super.initState();
     final actual = widget.registroExistente;
+    _fecha = (actual?.registradoEn ?? DateTime.now()).toLocal();
     if (actual != null) {
       _litrosCtrl.text = actual.litros.toString();
       _jornada = actual.jornada ?? 'Mañana';
       _observacionesCtrl.text = actual.observaciones ?? '';
       _modalidad = actual.esPorLote ? 'lote' : 'animal';
-      _fecha = actual.registradoEn;
     }
     _cargarCatalogos();
   }
@@ -125,22 +132,6 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
         _litrosCtrl.text = (_litrosActuales + cantidad).toStringAsFixed(1));
   }
 
-  Future<void> _elegirFecha() async {
-    final elegida = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (elegida != null) {
-      final ahora = DateTime.now();
-      setState(() {
-        _fecha = DateTime(
-            elegida.year, elegida.month, elegida.day, ahora.hour, ahora.minute);
-      });
-    }
-  }
-
   String get _destinoTexto {
     if (_modalidad == 'lote') {
       return _loteSeleccionado?.nombre ?? 'Sin lote seleccionado';
@@ -174,16 +165,20 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
           ? null
           : _observacionesCtrl.text.trim();
       if (_esEdicion) {
+        // `registradoEn` NUNCA se envía al editar: la fecha original del
+        // registro no debe cambiar bajo ningún concepto.
         await widget.repository.actualizarLeche(
           widget.registroExistente!.id,
           ActualizarProduccionLecheDTO(
             litros: litros,
             jornada: _jornada,
             observaciones: observaciones,
-            registradoEn: _fecha,
           ),
         );
       } else {
+        // La fecha se calcula FRESCA en el momento de guardar (no se usa
+        // `_fecha`, que quedó fijada al abrir el formulario), para que
+        // quede el instante real del registro.
         await widget.repository.crearLeche(
           CrearProduccionLecheDTO(
             animalId: _modalidad == 'animal' ? _animalSeleccionado!.id : null,
@@ -191,7 +186,7 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
             litros: litros,
             jornada: _jornada,
             observaciones: observaciones,
-            registradoEn: _fecha,
+            registradoEn: DateTime.now(),
           ),
         );
       }
@@ -211,9 +206,6 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
   @override
   Widget build(BuildContext context) {
     final usuario = widget.session.usuario;
-    final esHoy = _fecha.year == DateTime.now().year &&
-        _fecha.month == DateTime.now().month &&
-        _fecha.day == DateTime.now().day;
 
     return Scaffold(
       appBar: AppBar(
@@ -331,27 +323,25 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                         icono: Icons.calendar_today,
                         texto: 'Fecha de registro'),
                     const SizedBox(height: 8),
-                    InkWell(
-                      onTap: _elegirFecha,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusDefault),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          suffixIcon: esHoy
-                              ? const Padding(
-                                  padding: EdgeInsets.only(right: 12),
-                                  child: Center(
-                                    widthFactor: 1,
-                                    child: Text('Hoy',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        child: Text(
-                          '${_fecha.year.toString().padLeft(4, '0')}-${_fecha.month.toString().padLeft(2, '0')}-${_fecha.day.toString().padLeft(2, '0')}',
-                        ),
+                    // Solo lectura — ver comentario de `_fecha` arriba.
+                    InputDecorator(
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: AppTheme.surfaceContainerHigh,
+                        suffixIcon: !_esEdicion
+                            ? const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Center(
+                                  widthFactor: 1,
+                                  child: Text('Hoy',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              )
+                            : null,
+                      ),
+                      child: Text(
+                        '${_fecha.year.toString().padLeft(4, '0')}-${_fecha.month.toString().padLeft(2, '0')}-${_fecha.day.toString().padLeft(2, '0')}',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -390,8 +380,9 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
                                         return 'Ingresa los litros';
                                       }
                                       final n = double.tryParse(v.trim());
-                                      if (n == null)
+                                      if (n == null) {
                                         return 'Debe ser un número';
+                                      }
                                       if (n < 0) return 'No puede ser negativo';
                                       return null;
                                     },

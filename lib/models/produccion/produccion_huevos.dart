@@ -11,6 +11,9 @@ import '../reproduccion/seguimiento_gestacion.dart' show AnimalReferencia;
 /// Desde el cambio de backend del 2026-10-01 (PR #14), también acepta
 /// `jornada` ("Mañana"/"Tarde"), igual que ya existía en producción de
 /// leche.
+///
+/// Desde el cambio de backend del 2026-10-02 (auditoría + borrado lógico):
+/// ver comentario equivalente en `produccion_leche.dart`.
 class ProduccionHuevos {
   final int id;
   final int? loteId;
@@ -22,6 +25,9 @@ class ProduccionHuevos {
   final DateTime registradoEn;
   final String? loteNombre;
   final AnimalReferencia? animal;
+  final String? creadoPorNombre;
+  final DateTime? eliminadoEn;
+  final String? eliminadoPorNombre;
 
   const ProduccionHuevos({
     required this.id,
@@ -34,12 +40,18 @@ class ProduccionHuevos {
     this.observaciones,
     this.loteNombre,
     this.animal,
+    this.creadoPorNombre,
+    this.eliminadoEn,
+    this.eliminadoPorNombre,
   });
 
   /// true si este registro se hizo "por lote" en vez de "por animal".
   bool get esPorLote => loteId != null;
 
   int get cantidadBuenos => cantidad - cantidadRotos;
+
+  /// Ver comentario equivalente en `produccion_leche.dart`.
+  bool get estaEliminado => eliminadoEn != null;
 
   factory ProduccionHuevos.fromJson(Map<String, dynamic> json) {
     return ProduccionHuevos(
@@ -57,6 +69,17 @@ class ProduccionHuevos {
           : null,
       animal: json['animales'] is Map<String, dynamic>
           ? AnimalReferencia.fromJson(json['animales'] as Map<String, dynamic>)
+          : null,
+      creadoPorNombre: (json['creado_por'] is Map<String, dynamic>)
+          ? (json['creado_por'] as Map<String, dynamic>)['nombre_usuario']
+              as String?
+          : null,
+      eliminadoEn: json['eliminado_en'] != null
+          ? DateTime.parse(json['eliminado_en'] as String)
+          : null,
+      eliminadoPorNombre: (json['eliminado_por'] is Map<String, dynamic>)
+          ? (json['eliminado_por'] as Map<String, dynamic>)['nombre_usuario']
+              as String?
           : null,
     );
   }
@@ -92,8 +115,11 @@ class CrearProduccionHuevosDTO {
         if (jornada != null) 'jornada': jornada,
         if (observaciones != null && observaciones!.trim().isNotEmpty)
           'observaciones': observaciones!.trim(),
+        // Ver comentario en CrearProduccionLecheDTO (produccion_leche.dart):
+        // `.toUtc()` evita que el backend confunda la hora local con UTC y
+        // desplace el registro a otro día cerca de la medianoche.
         if (registradoEn != null)
-          'registrado_en': registradoEn!.toIso8601String(),
+          'registrado_en': registradoEn!.toUtc().toIso8601String(),
       };
 }
 
@@ -117,7 +143,8 @@ class ActualizarProduccionHuevosDTO {
         if (cantidadRotos != null) 'cantidad_rotos': cantidadRotos,
         if (jornada != null) 'jornada': jornada,
         if (observaciones != null) 'observaciones': observaciones!.trim(),
+        // Mismo fix — ver arriba.
         if (registradoEn != null)
-          'registrado_en': registradoEn!.toIso8601String(),
+          'registrado_en': registradoEn!.toUtc().toIso8601String(),
       };
 }

@@ -9,6 +9,34 @@ import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import 'huevos_form_screen.dart';
 import 'leche_form_screen.dart';
+import 'produccion_detalle_dialog.dart';
+
+/// Confirmación antes de eliminar (punto 5 del reporte de pruebas,
+/// 2026-10-02) — el borrado ahora es lógico en el backend (el registro
+/// queda marcado, no desaparece), pero sigue siendo una acción que no se
+/// debe disparar por accidente con un solo toque.
+Future<bool> _confirmarEliminar(
+    BuildContext context, String descripcion) async {
+  final confirmado = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('¿Eliminar registro?'),
+      content: Text(
+          'Se eliminará "$descripcion". Esta acción queda registrada en el historial.'),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Eliminar'),
+        ),
+      ],
+    ),
+  );
+  return confirmado ?? false;
+}
 
 class ProduccionListScreen extends StatefulWidget {
   final ProduccionRepository repository;
@@ -201,17 +229,32 @@ class _ListaLeche extends StatelessWidget {
                       color: const Color(0xFF3F6B4A)),
                   title: Text('${r.litros} L · $origen'),
                   subtitle: Text(
-                    '${r.jornada ?? 'Sin jornada'} · ${formato.format(r.registradoEn)}'
+                    '${r.jornada ?? 'Sin jornada'} · ${formato.format(r.registradoEn.toLocal())}'
                     '${(r.observaciones != null && r.observaciones!.isNotEmpty) ? '\n${r.observaciones}' : ''}',
                   ),
                   isThreeLine:
                       r.observaciones != null && r.observaciones!.isNotEmpty,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () async {
-                      await repository.eliminarLeche(r.id);
-                      onRecargar();
-                    },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info_outline),
+                        tooltip: 'Ver detalles',
+                        onPressed: () => mostrarDetalleLeche(context, r),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () async {
+                          final confirmado = await _confirmarEliminar(
+                            context,
+                            '${r.litros} L de leche del ${formato.format(r.registradoEn.toLocal())}',
+                          );
+                          if (!confirmado) return;
+                          await repository.eliminarLeche(r.id);
+                          onRecargar();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -291,17 +334,32 @@ class _ListaHuevos extends StatelessWidget {
                         : '${r.cantidad} huevos',
                   ),
                   subtitle: Text(
-                    '${origen != null ? '$origen · ' : ''}${formato.format(r.registradoEn)}'
+                    '${origen != null ? '$origen · ' : ''}${formato.format(r.registradoEn.toLocal())}'
                     '${(r.observaciones != null && r.observaciones!.isNotEmpty) ? '\n${r.observaciones}' : ''}',
                   ),
                   isThreeLine:
                       r.observaciones != null && r.observaciones!.isNotEmpty,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () async {
-                      await repository.eliminarHuevos(r.id);
-                      onRecargar();
-                    },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info_outline),
+                        tooltip: 'Ver detalles',
+                        onPressed: () => mostrarDetalleHuevos(context, r),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () async {
+                          final confirmado = await _confirmarEliminar(
+                            context,
+                            '${r.cantidad} huevos del ${formato.format(r.registradoEn.toLocal())}',
+                          );
+                          if (!confirmado) return;
+                          await repository.eliminarHuevos(r.id);
+                          onRecargar();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               );

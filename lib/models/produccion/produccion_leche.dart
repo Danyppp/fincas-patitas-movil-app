@@ -10,6 +10,13 @@ const jornadasValidas = ['Mañana', 'Tarde'];
 /// Desde el cambio de backend del 2026-09-29, el registro se hace **por
 /// animal o por lote** (nunca ambos, nunca ninguno). También se agregó
 /// `observaciones` (texto libre opcional).
+///
+/// Desde el cambio de backend del 2026-10-02 (auditoría + borrado lógico):
+/// cada registro ahora trae quién lo creó (`creado_por`) y, si fue
+/// eliminado, cuándo y por quién (`eliminado_en`/`eliminado_por`). El
+/// registro NUNCA desaparece de la base — un registro "eliminado" sigue
+/// existiendo con esos dos campos poblados, y solo se incluye en la
+/// respuesta cuando se pide explícitamente `incluir_eliminados=true`.
 class ProduccionLeche {
   final int id;
   final int? animalId;
@@ -20,6 +27,9 @@ class ProduccionLeche {
   final DateTime registradoEn;
   final AnimalReferencia? animal;
   final String? loteNombre;
+  final String? creadoPorNombre;
+  final DateTime? eliminadoEn;
+  final String? eliminadoPorNombre;
 
   const ProduccionLeche({
     required this.id,
@@ -31,10 +41,18 @@ class ProduccionLeche {
     this.observaciones,
     this.animal,
     this.loteNombre,
+    this.creadoPorNombre,
+    this.eliminadoEn,
+    this.eliminadoPorNombre,
   });
 
   /// true si este registro se hizo "por lote" en vez de "por animal".
   bool get esPorLote => loteId != null;
+
+  /// true si este registro fue borrado lógicamente (sigue existiendo en la
+  /// base, pero no debe contar en totales ni aparecer en las listas
+  /// normales — solo en el historial, marcado como eliminado).
+  bool get estaEliminado => eliminadoEn != null;
 
   factory ProduccionLeche.fromJson(Map<String, dynamic> json) {
     return ProduccionLeche(
@@ -55,6 +73,17 @@ class ProduccionLeche {
           : null,
       loteNombre: (json['lotes_animales'] is Map<String, dynamic>)
           ? (json['lotes_animales'] as Map<String, dynamic>)['nombre']
+              as String?
+          : null,
+      creadoPorNombre: (json['creado_por'] is Map<String, dynamic>)
+          ? (json['creado_por'] as Map<String, dynamic>)['nombre_usuario']
+              as String?
+          : null,
+      eliminadoEn: json['eliminado_en'] != null
+          ? DateTime.parse(json['eliminado_en'] as String)
+          : null,
+      eliminadoPorNombre: (json['eliminado_por'] is Map<String, dynamic>)
+          ? (json['eliminado_por'] as Map<String, dynamic>)['nombre_usuario']
               as String?
           : null,
     );
@@ -94,8 +123,17 @@ class CrearProduccionLecheDTO {
         if (jornada != null) 'jornada': jornada,
         if (observaciones != null && observaciones!.trim().isNotEmpty)
           'observaciones': observaciones!.trim(),
+        // IMPORTANTE (corrección 2026-10-01): `DateTime.now()` es una hora
+        // LOCAL. `.toIso8601String()` de una hora local NO incluye 'Z' ni
+        // offset, así que el backend (que corre en UTC) la interpretaba
+        // como si YA fuera UTC — desplazando el registro de día cerca de
+        // la medianoche y haciendo que el Dashboard no lo contara como
+        // "de hoy". `.toUtc()` convierte primero a la hora UTC real antes
+        // de serializar, eliminando la ambigüedad.
         if (registradoEn != null)
-          'registrado_en': registradoEn!.toIso8601String(),
+          'registrado_en': registradoEn!.toUtc().toIso8601String(),
+        // Nota: `creado_por_id` NUNCA se manda desde el cliente — el
+        // backend lo toma del token de sesión (2026-10-02).
       };
 }
 
@@ -118,7 +156,8 @@ class ActualizarProduccionLecheDTO {
         if (litros != null) 'litros': litros,
         if (jornada != null) 'jornada': jornada,
         if (observaciones != null) 'observaciones': observaciones!.trim(),
+        // Mismo fix que en CrearProduccionLecheDTO — ver comentario arriba.
         if (registradoEn != null)
-          'registrado_en': registradoEn!.toIso8601String(),
+          'registrado_en': registradoEn!.toUtc().toIso8601String(),
       };
 }

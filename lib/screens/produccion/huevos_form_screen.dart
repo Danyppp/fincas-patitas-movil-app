@@ -61,7 +61,10 @@ class _HuevosFormScreenState extends State<HuevosFormScreen> {
   void initState() {
     super.initState();
     final actual = widget.registroExistente;
-    _fecha = actual?.registradoEn ?? DateTime.now();
+    // `.toLocal()`: `actual.registradoEn` viene parseado del backend en
+    // UTC: sin convertir a hora local, un registro creado cerca de la
+    // medianoche podía mostrar el día equivocado (corrección 2026-10-01).
+    _fecha = (actual?.registradoEn ?? DateTime.now()).toLocal();
     if (actual != null) {
       _cantidadCtrl.text = actual.cantidad.toString();
       if (actual.cantidadRotos > 0) {

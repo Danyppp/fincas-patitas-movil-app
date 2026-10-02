@@ -8,13 +8,19 @@ import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../animales/animales_list_screen.dart';
 import '../inventario/inventario_list_screen.dart';
-import '../produccion/produccion_list_screen.dart';
+import '../produccion/produccion_dashboard_screen.dart';
 import '../reproduccion/reproduccion_list_screen.dart';
 import 'cuenta_screen.dart';
 
 /// Navegación base de la app: barra inferior con los módulos priorizados
 /// de este sprint (Animales, Reproducción, Producción, Inventario) y
 /// Cuenta (perfil + cerrar sesión).
+///
+/// Desde el 2026-10-01, "Producción" abre primero el Dashboard (resumen de
+/// hoy, comparativo vs ayer, desglose por lote, historial e historial
+/// reciente) en vez de ir directo a la lista de Leche/Huevos — esa lista
+/// sigue existiendo tal cual, pero ahora se llega a ella desde el botón
+/// "Registrar producción de hoy" del Dashboard.
 class HomeShell extends StatefulWidget {
   final AnimalRepository animalRepository;
   final CatalogoRepository catalogoRepository;
@@ -51,7 +57,7 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.reproduccionRepository,
         animalRepository: widget.animalRepository,
       ),
-      ProduccionListScreen(
+      ProduccionDashboardScreen(
         repository: widget.produccionRepository,
         animalRepository: widget.animalRepository,
         catalogoRepository: widget.catalogoRepository,
