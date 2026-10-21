@@ -5,11 +5,19 @@ import '../../models/reproduccion/seguimiento_gestacion.dart';
 ///
 /// Flujo de 3 pasos (auditoría agregada 2026-10-15): [crear] deja el
 /// registro en "Pendiente"; [confirmar] lo pasa a "Gestante"; [cerrar] lo
-/// cierra con su resultado final ("Parida" o "Abortada"). Cualquier usuario
-/// autenticado puede ejecutar cualquier paso, sin importar quién hizo el
-/// anterior.
+/// cierra con su resultado final ("Parida", "Abortada" o "Fallida").
+/// Cualquier usuario autenticado puede ejecutar cualquier paso, sin importar
+/// quién hizo el anterior.
 abstract class ReproduccionRepository {
-  Future<List<SeguimientoGestacion>> listar({int? animalId, String? estado});
+  /// 2026-10-20: `incluirEliminados` es EXCLUSIVO de la pantalla de
+  /// Historial -- el resto de pantallas (panorama, burbujas, listas por
+  /// estado) nunca deben mandar `true` aquí, para no mostrar un registro
+  /// con borrado lógico en ningún lado que no sea el Historial.
+  Future<List<SeguimientoGestacion>> listar({
+    int? animalId,
+    String? estado,
+    bool incluirEliminados = false,
+  });
 
   Future<SeguimientoGestacion?> obtenerPorId(int id);
 
@@ -26,5 +34,8 @@ abstract class ReproduccionRepository {
   /// Paso 3: cierra el seguimiento con su resultado final.
   Future<SeguimientoGestacion> cerrar(int id, CerrarSeguimientoDTO dto);
 
+  /// 2026-10-20: ya NO es un borrado físico -- el backend hace borrado
+  /// lógico (el registro sigue existiendo, marcado con eliminado_por/
+  /// eliminado_en, visible solo en el Historial).
   Future<void> eliminar(int id);
 }

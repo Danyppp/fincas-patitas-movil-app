@@ -8,11 +8,17 @@ class ApiReproduccionRepository implements ReproduccionRepository {
   ApiReproduccionRepository({required this.client});
 
   @override
-  Future<List<SeguimientoGestacion>> listar(
-      {int? animalId, String? estado}) async {
+  Future<List<SeguimientoGestacion>> listar({
+    int? animalId,
+    String? estado,
+    bool incluirEliminados = false,
+  }) async {
     final data = await client.get('/reproduccion', query: {
       if (animalId != null) 'animal_id': animalId,
       if (estado != null) 'estado': estado,
+      // Solo se manda cuando es true -- mismo patrón que el resto de la
+      // app, para no cambiar el comportamiento por defecto de nadie más.
+      if (incluirEliminados) 'incluirEliminados': 'true',
     }) as List<dynamic>;
     return data
         .map((e) => SeguimientoGestacion.fromJson(e as Map<String, dynamic>))

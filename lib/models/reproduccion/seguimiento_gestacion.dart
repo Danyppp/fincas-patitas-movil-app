@@ -1,18 +1,30 @@
 /// Referencia mínima a un animal, tal como viene anidada en los registros
-/// de reproducción (`include: { animales: true, macho: true }` en el
-/// repositorio del backend — no trae especie/raza anidada aquí).
+/// de reproducción (`include: { animales: { include: { especies: true } },
+/// macho: { include: { especies: true } } }` en el repositorio del backend
+/// -- trae especie (nombre), pero a propósito NO trae raza (decisión
+/// confirmada 2026-10-21: el detalle de un seguimiento muestra especie,
+/// nombre y código, nunca raza).
 class AnimalReferencia {
   final int id;
   final String codigo;
   final String? nombre;
+  final String? especieNombre;
 
-  const AnimalReferencia({required this.id, required this.codigo, this.nombre});
+  const AnimalReferencia({
+    required this.id,
+    required this.codigo,
+    this.nombre,
+    this.especieNombre,
+  });
 
   factory AnimalReferencia.fromJson(Map<String, dynamic> json) {
     return AnimalReferencia(
       id: json['id'] as int,
       codigo: json['codigo'] as String,
       nombre: json['nombre'] as String?,
+      especieNombre: json['especies'] is Map<String, dynamic>
+          ? (json['especies'] as Map<String, dynamic>)['nombre'] as String?
+          : null,
     );
   }
 
@@ -61,6 +73,10 @@ class SeguimientoGestacion {
   final DateTime? fechaRealParto;
   final String estado;
   final String? notas;
+  // 2026-10-20: cuándo se creó el registro en sí (distinto de
+  // fechaInseminacion, que es la fecha del evento reproductivo y puede
+  // registrarse días después de que ocurrió).
+  final DateTime? creadoEn;
   final AnimalReferencia? animal;
   final AnimalReferencia? macho;
   final UsuarioReferencia? creadoPor;
@@ -68,6 +84,11 @@ class SeguimientoGestacion {
   final DateTime? confirmadoEn;
   final UsuarioReferencia? cerradoPor;
   final DateTime? cerradoEn;
+  // 2026-10-20: auditoría de edición/eliminación (ver Historial).
+  final UsuarioReferencia? editadoPor;
+  final DateTime? editadoEn;
+  final UsuarioReferencia? eliminadoPor;
+  final DateTime? eliminadoEn;
 
   const SeguimientoGestacion({
     required this.id,
@@ -79,6 +100,7 @@ class SeguimientoGestacion {
     this.fechaEstimadaParto,
     this.fechaRealParto,
     this.notas,
+    this.creadoEn,
     this.animal,
     this.macho,
     this.creadoPor,
@@ -86,6 +108,10 @@ class SeguimientoGestacion {
     this.confirmadoEn,
     this.cerradoPor,
     this.cerradoEn,
+    this.editadoPor,
+    this.editadoEn,
+    this.eliminadoPor,
+    this.eliminadoEn,
   });
 
   bool get estaPendiente => estado == 'Pendiente';
@@ -96,6 +122,15 @@ class SeguimientoGestacion {
   // (ver comentario de la clase) -- no requiere haber pasado por Gestante.
   bool get estaFallida => estado == 'Fallida';
   bool get estaCerrado => estaParida || estaAbortada || estaFallida;
+  // 2026-10-20: borrado lógico -- el registro NUNCA se borra físicamente,
+  // solo se marca. Solo lo usa la pantalla de Historial (el resto de
+  // pantallas no debe mostrar nunca un registro con esto en true, porque
+  // el backend ya los excluye por defecto).
+  bool get estaEliminado => eliminadoEn != null;
+  // "Exitoso vs Fallido" para la métrica de Fertilidad (2026-10-20,
+  // confirmado): Parida = exitoso; Fallida o Abortada = fallido.
+  bool get esResultadoExitoso => estaParida;
+  bool get esResultadoFallido => estaFallida || estaAbortada;
 
   factory SeguimientoGestacion.fromJson(Map<String, dynamic> json) {
     return SeguimientoGestacion(
@@ -112,6 +147,9 @@ class SeguimientoGestacion {
           : null,
       estado: json['estado'] as String? ?? 'Pendiente',
       notas: json['notas'] as String?,
+      creadoEn: json['creado_en'] != null
+          ? DateTime.tryParse(json['creado_en'] as String)
+          : null,
       animal: json['animales'] is Map<String, dynamic>
           ? AnimalReferencia.fromJson(json['animales'] as Map<String, dynamic>)
           : null,
@@ -135,6 +173,20 @@ class SeguimientoGestacion {
           : null,
       cerradoEn: json['cerrado_en'] != null
           ? DateTime.tryParse(json['cerrado_en'] as String)
+          : null,
+      editadoPor: json['editado_por'] is Map<String, dynamic>
+          ? UsuarioReferencia.fromJson(
+              json['editado_por'] as Map<String, dynamic>)
+          : null,
+      editadoEn: json['editado_en'] != null
+          ? DateTime.tryParse(json['editado_en'] as String)
+          : null,
+      eliminadoPor: json['eliminado_por'] is Map<String, dynamic>
+          ? UsuarioReferencia.fromJson(
+              json['eliminado_por'] as Map<String, dynamic>)
+          : null,
+      eliminadoEn: json['eliminado_en'] != null
+          ? DateTime.tryParse(json['eliminado_en'] as String)
           : null,
     );
   }

@@ -12,7 +12,11 @@ import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../../theme/app_theme.dart';
+import 'fertilidad_screen.dart';
+import 'historial_reproduccion_screen.dart';
 import 'registrar_seguimiento_screen.dart';
+import 'reproduccion_lista_filtrada_screen.dart';
+import 'seguimiento_detalle_screen.dart';
 import 'seguimiento_form_screen.dart';
 
 /// Pantalla de entrada del módulo Reproducción (reemplaza a la lista plana
@@ -26,6 +30,12 @@ import 'seguimiento_form_screen.dart';
 ///   (cerrados como "Parida" en el mes en curso) y Fertilidad vs mes
 ///   anterior (Parida / (Parida+Abortada) del mes, comparada con el mes
 ///   anterior).
+/// - 2026-10-21 (Parte 1): cada burbuja ahora es tocable y lleva a una
+///   pantalla con el listado completo de ese grupo ("Ver detalles ->
+///   Editarlos ó Eliminar"); las tarjetas de la lista principal también son
+///   tocables, pero abren un detalle de SOLO LECTURA (sin editar/eliminar);
+///   y al final de esta pantalla hay un acceso al Historial completo
+///   (incluye registros eliminados, para auditoría).
 /// - Búsqueda de "Machos activos" con filtro de especie (Solo Toros / Solo
 ///   Cerdos -- los gallos quedan fuera de este módulo a propósito).
 /// - Las tarjetas son solo informativas (2026-10-19, corregido): avanzar un
@@ -147,6 +157,34 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
     if (resultado == true) _cargar();
   }
 
+  /// 2026-10-21: detalle de SOLO LECTURA desde la lista principal (a
+  /// pedido explícito -- "que abran ÚNICAMENTE los detalles registrados
+  /// hasta la fecha"). Editar/Eliminar solo viven en las 4 pantallas de
+  /// las burbujas.
+  void _abrirDetalleSoloLectura(SeguimientoGestacion registro) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SeguimientoDetalleScreen(
+          repository: widget.repository,
+          animalRepository: widget.animalRepository,
+          registro: registro,
+          permitirAcciones: false,
+        ),
+      ),
+    );
+  }
+
+  void _abrirHistorial() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HistorialReproduccionScreen(
+          repository: widget.repository,
+          animalRepository: widget.animalRepository,
+        ),
+      ),
+    );
+  }
+
   /// Búsqueda en vivo (2026-10-20, corregido): cada tecla reinicia un
   /// retraso corto antes de disparar la búsqueda real, en vez de esperar a
   /// que toques Enter o el botón "Buscar" (que se deja también, para
@@ -258,7 +296,11 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
-                      _BurbujasPanorama(registros: _registros),
+                      _BurbujasPanorama(
+                        registros: _registros,
+                        repository: widget.repository,
+                        animalRepository: widget.animalRepository,
+                      ),
                       const SizedBox(height: 16),
                       _BotonRegistrarSeguimiento(
                           onPressed: _abrirRegistrarSeguimiento),
@@ -322,7 +364,10 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
                           _TarjetaSeguimiento(
                             registro: registro,
                             dateFormat: _dateFormat,
+                            onTap: () => _abrirDetalleSoloLectura(registro),
                           ),
+                      const SizedBox(height: 20),
+                      _BotonHistorial(onPressed: _abrirHistorial),
                     ],
                   ),
                 ),
@@ -331,11 +376,20 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
 }
 
 /// Fila de 4 burbujas deslizables horizontalmente (estilo mockup Stitch),
-/// cada una con su ícono, valor y etiqueta.
+/// cada una con su ícono, valor y etiqueta. 2026-10-21: ahora cada burbuja
+/// es tocable y lleva a su propia pantalla con el listado completo (las 3
+/// primeras reutilizan ReproduccionListaFiltradaScreen; Fertilidad tiene
+/// su propia pantalla con gráfico, ver FertilidadScreen).
 class _BurbujasPanorama extends StatelessWidget {
   final List<SeguimientoGestacion> registros;
+  final ReproduccionRepository repository;
+  final AnimalRepository animalRepository;
 
-  const _BurbujasPanorama({required this.registros});
+  const _BurbujasPanorama({
+    required this.registros,
+    required this.repository,
+    required this.animalRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -349,18 +403,27 @@ class _BurbujasPanorama extends StatelessWidget {
         fecha.year == referencia.year &&
         fecha.month == referencia.month;
 
+    // 2026-10-21 (corregido a partir de la prueba de Dany): igual que en
+    // FertilidadScreen, el mes se determina por la fecha REAL del evento
+    // (fechaRealParto), no por cerradoEn (cuándo se dio clic en el
+    // sistema) -- un registro cerrado hoy pero con fecha real del mes
+    // pasado debe contar en el mes pasado.
+    DateTime? fechaDeResultado(SeguimientoGestacion r) =>
+        r.fechaRealParto ?? r.cerradoEn;
+
     final partosEsteMes = registros
-        .where((r) => r.estaParida && enMes(r.cerradoEn, ahora))
+        .where((r) => r.estaParida && enMes(fechaDeResultado(r), ahora))
         .length;
 
     double? fertilidadDe(DateTime referencia) {
       final paridas = registros
-          .where((r) => r.estaParida && enMes(r.cerradoEn, referencia))
+          .where((r) => r.estaParida && enMes(fechaDeResultado(r), referencia))
           .length;
-      final abortadas = registros
-          .where((r) => r.estaAbortada && enMes(r.cerradoEn, referencia))
+      final fallidas = registros
+          .where((r) =>
+              r.esResultadoFallido && enMes(fechaDeResultado(r), referencia))
           .length;
-      final total = paridas + abortadas;
+      final total = paridas + fallidas;
       if (total == 0) return null;
       return (paridas / total) * 100;
     }
@@ -373,24 +436,78 @@ class _BurbujasPanorama extends StatelessWidget {
             ? fertilidadActual - fertilidadAnterior
             : null;
 
+    void abrirLista({
+      required String titulo,
+      required IconData icono,
+      required Color color,
+      required bool Function(SeguimientoGestacion) filtro,
+      required String mensajeVacio,
+    }) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ReproduccionListaFiltradaScreen(
+            repository: repository,
+            animalRepository: animalRepository,
+            titulo: titulo,
+            icono: icono,
+            color: color,
+            filtro: filtro,
+            mensajeVacio: mensajeVacio,
+          ),
+        ),
+      );
+    }
+
+    void abrirFertilidad() {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => FertilidadScreen(
+            repository: repository,
+            animalRepository: animalRepository,
+          ),
+        ),
+      );
+    }
+
     final burbujas = [
       _DatoBurbuja(
         icono: Icons.pregnant_woman,
         color: AppTheme.primary,
         valor: '$gestaciones',
         etiqueta: 'Gestaciones',
+        onTap: () => abrirLista(
+          titulo: 'Gestaciones',
+          icono: Icons.pregnant_woman,
+          color: AppTheme.primary,
+          filtro: (r) => r.estaGestante,
+          mensajeVacio: 'No hay gestaciones activas en este momento',
+        ),
       ),
       _DatoBurbuja(
         icono: Icons.hourglass_top,
         color: AppTheme.secondary,
         valor: '$partosPendientes',
         etiqueta: 'Partos pendientes',
+        onTap: () => abrirLista(
+          titulo: 'Partos pendientes',
+          icono: Icons.hourglass_top,
+          color: AppTheme.secondary,
+          filtro: (r) => r.estaPendiente,
+          mensajeVacio: 'No hay seguimientos pendientes de confirmar',
+        ),
       ),
       _DatoBurbuja(
         icono: Icons.celebration_outlined,
         color: AppTheme.tertiary,
         valor: '$partosEsteMes',
         etiqueta: 'Partos este mes',
+        onTap: () => abrirLista(
+          titulo: 'Partos este mes',
+          icono: Icons.celebration_outlined,
+          color: AppTheme.tertiary,
+          filtro: (r) => r.estaParida && enMes(fechaDeResultado(r), ahora),
+          mensajeVacio: 'Ningún parto exitoso registrado este mes todavía',
+        ),
       ),
       _DatoBurbuja(
         icono: Icons.trending_up,
@@ -401,11 +518,18 @@ class _BurbujasPanorama extends StatelessWidget {
         etiqueta: deltaFertilidad == null
             ? 'Fertilidad del mes'
             : 'Fertilidad (${deltaFertilidad >= 0 ? '+' : ''}${deltaFertilidad.toStringAsFixed(0)} pts vs mes ant.)',
+        onTap: abrirFertilidad,
       ),
     ];
 
     return SizedBox(
-      height: 104,
+      // 2026-10-21 (segundo ajuste): 104 se quedaba corto para la etiqueta
+      // de Fertilidad cuando trae el "(+N pts vs mes ant.)" en 2 líneas --
+      // el primer intento con Expanded "arreglaba" el overflow pero
+      // aplastaba el texto hasta hacerlo ilegible. Se sube la tarjeta a
+      // 124 y se usan espaciados fijos (ver _BurbujaCard) en vez de
+      // Expanded/spaceBetween, para que el texto tenga su alto real.
+      height: 124,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: burbujas.length,
@@ -421,12 +545,14 @@ class _DatoBurbuja {
   final Color color;
   final String valor;
   final String etiqueta;
+  final VoidCallback onTap;
 
   const _DatoBurbuja({
     required this.icono,
     required this.color,
     required this.valor,
     required this.etiqueta,
+    required this.onTap,
   });
 }
 
@@ -437,29 +563,44 @@ class _BurbujaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 148,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: dato.color.withValues(alpha: 0.08),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-        border: Border.all(color: dato.color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(dato.icono, color: dato.color, size: 22),
-          Text(dato.valor,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(
-            dato.etiqueta,
-            style: TextStyle(fontSize: 11, color: AppTheme.outline),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+        onTap: dato.onTap,
+        child: Container(
+          width: 148,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: dato.color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+            border: Border.all(color: dato.color.withValues(alpha: 0.2)),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(dato.icono, color: dato.color, size: 22),
+              const SizedBox(height: 6),
+              Text(dato.valor,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              // 2026-10-21 (segundo ajuste): ya NO usa Expanded (eso
+              // aplastaba el texto hasta hacerlo ilegible). Con
+              // mainAxisSize.min + la tarjeta en 124 de alto, el texto
+              // simplemente ocupa el espacio real que necesita; el
+              // maxLines/ellipsis sigue ahí por si algún texto fuera aún
+              // más largo.
+              Text(
+                dato.etiqueta,
+                style: TextStyle(fontSize: 11, color: AppTheme.outline),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -503,6 +644,46 @@ class _BotonRegistrarSeguimiento extends StatelessWidget {
               ),
               const Icon(Icons.chevron_right_rounded,
                   color: Colors.white, size: 26),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Acceso al Historial completo (2026-10-21, nuevo a pedido de la Parte 1):
+/// "al final del inicio aparezca el Historial de todos los registros hechos
+/// y eliminados (para la auditoria)". Se deja como un botón/entrada al
+/// final de la pantalla en vez de mostrar la lista completa inline, porque
+/// el historial puede crecer mucho -- la lista en sí vive en su propia
+/// pantalla (HistorialReproduccionScreen).
+class _BotonHistorial extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _BotonHistorial({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        onTap: onPressed,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.history, color: AppTheme.primary),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Ver historial completo',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.outline),
             ],
           ),
         ),
@@ -694,20 +875,21 @@ class _FiltroEstado extends StatelessWidget {
   }
 }
 
-/// Tarjeta de un seguimiento -- 100% informativa (2026-10-19, corregido):
-/// ya no tiene botones de acción propios ("Confirmar" / "Registrar
-/// parto-aborto" se quitaron de aquí). Avanzar un seguimiento (Confirmar o
-/// Parto/Aborto) pasa EXCLUSIVAMENTE por la pantalla "Registrar
-/// Seguimiento", para no mezclar esa acción con los roles de la pantalla
-/// de inicio. Esta tarjeta solo muestra el estado y quién hizo cada paso
-/// (creó / confirmó / cerró) como constancia de auditoría.
+/// Tarjeta de un seguimiento en la lista principal -- SOLO LECTURA
+/// (2026-10-19, corregido; ampliado 2026-10-21): no tiene botones de
+/// acción propios ("Confirmar" / "Registrar parto-aborto" se quitaron de
+/// aquí, y Editar/Eliminar NUNCA viven aquí a propósito -- eso vive en las
+/// 4 pantallas de las burbujas). Tocar la tarjeta abre un detalle de solo
+/// lectura (SeguimientoDetalleScreen con permitirAcciones: false).
 class _TarjetaSeguimiento extends StatelessWidget {
   final SeguimientoGestacion registro;
   final DateFormat dateFormat;
+  final VoidCallback onTap;
 
   const _TarjetaSeguimiento({
     required this.registro,
     required this.dateFormat,
+    required this.onTap,
   });
 
   Color get _colorEstado {
@@ -729,46 +911,50 @@ class _TarjetaSeguimiento extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: _colorEstado.withValues(alpha: 0.15),
-                  child: Icon(Icons.pregnant_woman, color: _colorEstado),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        registro.animal?.nombreVisible ??
-                            'Animal #${registro.animalId}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}'
-                        '${registro.fechaEstimadaParto != null ? ' · Parto est.: ${dateFormat.format(registro.fechaEstimadaParto!)}' : ''}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: _colorEstado.withValues(alpha: 0.15),
+                    child: Icon(Icons.pregnant_woman, color: _colorEstado),
                   ),
-                ),
-                Chip(
-                  label: Text(registro.estado,
-                      style: const TextStyle(fontSize: 12)),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: _colorEstado.withValues(alpha: 0.12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _LineaAuditoria(registro: registro),
-          ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          registro.animal?.nombreVisible ??
+                              'Animal #${registro.animalId}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}'
+                          '${registro.fechaEstimadaParto != null ? ' · Parto est.: ${dateFormat.format(registro.fechaEstimadaParto!)}' : ''}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Chip(
+                    label: Text(registro.estado,
+                        style: const TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: _colorEstado.withValues(alpha: 0.12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _LineaAuditoria(registro: registro),
+            ],
+          ),
         ),
       ),
     );
