@@ -56,6 +56,8 @@ class _HomeShellState extends State<HomeShell> {
       ReproduccionListScreen(
         repository: widget.reproduccionRepository,
         animalRepository: widget.animalRepository,
+        catalogoRepository: widget.catalogoRepository,
+        session: widget.session,
       ),
       ProduccionDashboardScreen(
         repository: widget.produccionRepository,

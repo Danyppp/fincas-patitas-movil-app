@@ -31,7 +31,8 @@ class ApiClient {
     query.forEach((key, value) {
       if (value != null) filtered[key] = value.toString();
     });
-    return base.replace(queryParameters: {...base.queryParameters, ...filtered});
+    return base
+        .replace(queryParameters: {...base.queryParameters, ...filtered});
   }
 
   Map<String, String> _headers({bool auth = true}) {
@@ -42,7 +43,8 @@ class ApiClient {
     return headers;
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query, bool auth = true}) {
+  Future<dynamic> get(String path,
+      {Map<String, dynamic>? query, bool auth = true}) {
     return _send('GET', path, query: query, auth: auth);
   }
 
@@ -52,6 +54,12 @@ class ApiClient {
 
   Future<dynamic> put(String path, {Object? body, bool auth = true}) {
     return _send('PUT', path, body: body, auth: auth);
+  }
+
+  // Nuevo (2026-10-15): lo necesita Reproducción para /reproduccion/:id/confirmar
+  // y /reproduccion/:id/cerrar -- el resto de módulos sigue usando put/post/delete.
+  Future<dynamic> patch(String path, {Object? body, bool auth = true}) {
+    return _send('PATCH', path, body: body, auth: auth);
   }
 
   Future<dynamic> delete(String path, {bool auth = true}) {
@@ -69,16 +77,21 @@ class ApiClient {
     final uri = _uri(path, query);
     http.Response respuesta;
     try {
-      respuesta = await _ejecutar(method, uri, body, auth).timeout(AppConfig.requestTimeout);
+      respuesta = await _ejecutar(method, uri, body, auth)
+          .timeout(AppConfig.requestTimeout);
     } catch (e) {
       throw NetworkException('No se pudo conectar con el backend ($uri). '
           '¿Está corriendo `npm run dev` en tu PC? Detalle: $e');
     }
 
-    if (respuesta.statusCode == 401 && auth && !esReintento && session.refreshToken != null) {
+    if (respuesta.statusCode == 401 &&
+        auth &&
+        !esReintento &&
+        session.refreshToken != null) {
       final renovado = await _intentarRefrescarToken();
       if (renovado) {
-        return _send(method, path, query: query, body: body, auth: auth, esReintento: true);
+        return _send(method, path,
+            query: query, body: body, auth: auth, esReintento: true);
       }
       await session.cerrarSesion();
     }
@@ -86,7 +99,8 @@ class ApiClient {
     return _procesarRespuesta(respuesta);
   }
 
-  Future<http.Response> _ejecutar(String method, Uri uri, Object? body, bool auth) {
+  Future<http.Response> _ejecutar(
+      String method, Uri uri, Object? body, bool auth) {
     final headers = _headers(auth: auth);
     final jsonBody = body != null ? jsonEncode(body) : null;
     switch (method) {
@@ -96,6 +110,8 @@ class ApiClient {
         return _http.post(uri, headers: headers, body: jsonBody);
       case 'PUT':
         return _http.put(uri, headers: headers, body: jsonBody);
+      case 'PATCH':
+        return _http.patch(uri, headers: headers, body: jsonBody);
       case 'DELETE':
         return _http.delete(uri, headers: headers);
       default:
@@ -126,7 +142,8 @@ class ApiClient {
 
   dynamic _procesarRespuesta(http.Response respuesta) {
     if (respuesta.statusCode == 204 || respuesta.body.isEmpty) {
-      if (respuesta.statusCode >= 200 && respuesta.statusCode < 300) return null;
+      if (respuesta.statusCode >= 200 && respuesta.statusCode < 300)
+        return null;
     }
 
     dynamic data;
@@ -146,14 +163,16 @@ class ApiClient {
       throw ApiException(
         statusCode: respuesta.statusCode,
         code: error['code'] as String? ?? 'UNKNOWN_ERROR',
-        message: error['message'] as String? ?? 'Error desconocido del servidor',
+        message:
+            error['message'] as String? ?? 'Error desconocido del servidor',
       );
     }
 
     throw ApiException(
       statusCode: respuesta.statusCode,
       code: 'UNKNOWN_ERROR',
-      message: 'El servidor respondió ${respuesta.statusCode} sin el formato de error esperado',
+      message:
+          'El servidor respondió ${respuesta.statusCode} sin el formato de error esperado',
     );
   }
 }
