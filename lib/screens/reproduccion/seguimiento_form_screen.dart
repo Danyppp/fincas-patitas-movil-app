@@ -121,10 +121,140 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
     if (resultado != null) setState(() => _fechaInseminacion = resultado);
   }
 
+  // 2026-10-22 (Parte 2, estilos, punto 4 y 6): tanto la Hembra como el
+  // Padre ahora se eligen con un selector modal (en vez de un dropdown
+  // suelto) y se muestran como una pequeña "pill" con sus datos + un ícono
+  // 🔁 que vuelve a abrir este mismo selector.
+  Future<void> _elegirHembra() async {
+    final resultado = await _abrirSelectorAnimal(
+      titulo: 'Selecciona la Hembra',
+      opciones: _hembras,
+    );
+    if (resultado == null || resultado.animal == null) return;
+    final elegida = resultado.animal!;
+    setState(() {
+      _hembraSeleccionada = elegida;
+      // Si el padre elegido antes ya no es de la misma especie que la
+      // nueva hembra, se limpia.
+      if (_padreSeleccionado != null &&
+          _padreSeleccionado!.especie?.nombre != elegida.especie?.nombre) {
+        _padreSeleccionado = null;
+      }
+    });
+  }
+
+  Future<void> _elegirPadre() async {
+    if (_hembraSeleccionada == null) return;
+    // 2026-10-22: "Sin especificar" se quitó a pedido -- Madre y Padre ya
+    // NO pueden quedar vacíos, así que este selector ya no ofrece esa
+    // opción (permiteNinguno queda en su valor por defecto, false).
+    final resultado = await _abrirSelectorAnimal(
+      titulo: 'Selecciona el Padre',
+      opciones: _machosFiltrados,
+    );
+    if (resultado == null) return;
+    setState(() => _padreSeleccionado = resultado.animal);
+  }
+
+  Future<_ResultadoSeleccion?> _abrirSelectorAnimal({
+    required String titulo,
+    required List<Animal> opciones,
+    bool permiteNinguno = false,
+  }) {
+    return showModalBottomSheet<_ResultadoSeleccion?>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(titulo,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: [
+                        if (permiteNinguno)
+                          ListTile(
+                            leading: const Icon(Icons.block,
+                                color: AppTheme.outline),
+                            title: const Text('Sin especificar'),
+                            onTap: () => Navigator.of(context)
+                                .pop(const _ResultadoSeleccion(null)),
+                          ),
+                        if (opciones.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                                child: Text('No hay animales disponibles')),
+                          ),
+                        for (final animal in opciones)
+                          ListTile(
+                            leading:
+                                const Icon(Icons.pets, color: AppTheme.primary),
+                            title: Text(
+                                '${animal.nombreVisible} (${animal.codigo})'),
+                            subtitle:
+                                Text(animal.especie?.nombre ?? 'Especie —'),
+                            onTap: () => Navigator.of(context)
+                                .pop(_ResultadoSeleccion(animal)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 2026-10-22, a pedido: notificación visible (SnackBar) cuando intentan
+  /// guardar con Madre o Padre vacíos -- distinta del texto rojo inline
+  /// (`_error`), que ya existía pero es fácil de no notar si la pantalla
+  /// está desplazada. Las dos conviven: el SnackBar llama la atención de
+  /// inmediato, el texto inline queda como recordatorio mientras corrigen.
+  void _mostrarNotificacionCampoVacio(String campo) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'No se puede guardar la información porque el campo $campo está vacío',
+        ),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_hembraSeleccionada == null) {
+      _mostrarNotificacionCampoVacio('Madre');
       setState(() => _error = 'Selecciona la hembra');
+      return;
+    }
+    // 2026-10-22, a pedido: Madre y Padre ya NO pueden quedar vacíos --
+    // antes el Padre era opcional (decisión original del módulo), pero
+    // ahora el formulario exige elegir los dos antes de poder guardar.
+    if (_padreSeleccionado == null) {
+      _mostrarNotificacionCampoVacio('Padre');
+      setState(() => _error = 'Selecciona el padre');
       return;
     }
     if (_tipo == null) {
@@ -169,7 +299,7 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo Evento')),
+      appBar: AppBar(title: const Text('Registro de Evento')),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -179,115 +309,124 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // -- 1. Hembra --
-                    _SeccionLabel(icono: Icons.female, texto: '1. Hembra'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<Animal>(
-                      initialValue: _hembraSeleccionada,
-                      decoration: const InputDecoration(
-                          labelText: 'Animal (hembra)',
-                          border: OutlineInputBorder()),
-                      items: _hembras
-                          .map((a) => DropdownMenuItem(
-                                value: a,
-                                child: Text(
-                                    '${a.nombreVisible} (${a.codigo}) · ${a.especie?.nombre ?? '—'}'),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() {
-                        _hembraSeleccionada = v;
-                        // Si el padre elegido antes ya no es de la misma
-                        // especie que la nueva hembra, se limpia.
-                        if (_padreSeleccionado != null &&
-                            _padreSeleccionado!.especie?.nombre !=
-                                v?.especie?.nombre) {
-                          _padreSeleccionado = null;
-                        }
-                      }),
-                      validator: (v) =>
-                          v == null ? 'Selecciona una hembra' : null,
+                    // 2026-10-22 (Parte 2, estilos, puntos 1-3 de la
+                    // CABEZA): título grande + subtítulo gris + pill de
+                    // alcance, estilo Stitch (antes el único título era el
+                    // del AppBar, "Nuevo Evento").
+                    const Text(
+                      'Registrar Evento Reproductivo',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Módulo de reproducción, trazabilidad genética y '
+                      'seguimiento de servicios.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.outline),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 16, color: AppTheme.primary),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Solo monitoreo para Bovinos (Vacas) y '
+                              'Porcinos (Cerdos)',
+                              style: TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // -- 1. Hembra --
+                    Row(
+                      children: [
+                        const Icon(Icons.female,
+                            color: AppTheme.primary, size: 18),
+                        const SizedBox(width: 6),
+                        const Text('Hembra',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        if (_hembraSeleccionada != null) ...[
+                          const SizedBox(width: 8),
+                          const _InsigniaCheck(),
+                          const SizedBox(width: 4),
+                          Text('Seleccionada',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green[700])),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _PillSeleccionAnimal(
+                      animal: _hembraSeleccionada,
+                      placeholder: 'Toca para seleccionar la hembra',
+                      onRecargar: _elegirHembra,
+                      error: _hembraSeleccionada == null,
+                    ),
+                    const SizedBox(height: 24),
 
                     // -- 2. Tipo de evento --
-                    _SeccionLabel(
-                        icono: Icons.event_note, texto: '2. Tipo de evento'),
-                    const SizedBox(height: 8),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(
-                            value: 'IA',
-                            label: Text('IA'),
-                            icon: Icon(Icons.science_outlined)),
-                        ButtonSegment(
-                            value: 'Monta natural',
-                            label: Text('Monta natural'),
-                            icon: Icon(Icons.favorite_outline)),
+                    const Row(
+                      children: [
+                        Icon(Icons.event_note,
+                            color: AppTheme.primary, size: 18),
+                        SizedBox(width: 6),
+                        Text('Tipo de evento',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
-                      selected: _tipo == null ? {} : {_tipo!},
-                      emptySelectionAllowed: true,
-                      onSelectionChanged: (s) =>
-                          setState(() => _tipo = s.isEmpty ? null : s.first),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
+                    // 2026-10-22 (punto 5): pills verticales en vez del
+                    // SegmentedButton horizontal -- marca con "✅" y en
+                    // amarillo (secondaryContainer) la opción elegida.
+                    _PillTipoEvento(
+                      valor: 'IA',
+                      icono: Icons.science_outlined,
+                      seleccionado: _tipo == 'IA',
+                      onTap: () => setState(() => _tipo = 'IA'),
+                    ),
+                    const SizedBox(height: 8),
+                    _PillTipoEvento(
+                      valor: 'Monta natural',
+                      icono: Icons.favorite_outline,
+                      seleccionado: _tipo == 'Monta natural',
+                      onTap: () => setState(() => _tipo = 'Monta natural'),
+                    ),
+                    const SizedBox(height: 24),
 
                     // -- 3. Detalles específicos --
-                    _SeccionLabel(
-                        icono: Icons.list_alt,
-                        texto: '3. Detalles específicos'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<Animal?>(
-                      initialValue: _padreSeleccionado,
-                      decoration: InputDecoration(
-                        labelText: 'Padre (opcional)',
-                        border: const OutlineInputBorder(),
-                        helperText: _hembraSeleccionada == null
-                            ? 'Selecciona primero la hembra'
-                            : null,
-                      ),
-                      items: [
-                        const DropdownMenuItem<Animal?>(
-                            value: null, child: Text('Sin especificar')),
-                        ..._machosFiltrados
-                            .map((a) => DropdownMenuItem<Animal?>(
-                                  value: a,
-                                  child: Text(
-                                      '${a.nombreVisible} (${a.codigo}) · ${a.especie?.nombre ?? '—'}'),
-                                )),
+                    const Row(
+                      children: [
+                        Icon(Icons.list_alt, color: AppTheme.primary, size: 18),
+                        SizedBox(width: 6),
+                        Text('Detalles específicos',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
-                      onChanged: _hembraSeleccionada == null
-                          ? null
-                          : (v) => setState(() => _padreSeleccionado = v),
                     ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOut,
-                      alignment: Alignment.topCenter,
-                      child: _padreSeleccionado == null
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: _campoAutoCompletado(
-                                etiqueta: 'Raza del Padre',
-                                valor: _padreSeleccionado!.raza?.nombre ??
-                                    'Sin raza registrada',
-                              ),
-                            ),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOut,
-                      alignment: Alignment.topCenter,
-                      child: _hembraSeleccionada == null
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: _campoAutoCompletado(
-                                etiqueta: 'Raza de la Madre',
-                                valor: _hembraSeleccionada!.raza?.nombre ??
-                                    'Sin raza registrada',
-                              ),
-                            ),
+                    const SizedBox(height: 8),
+                    _PillSeleccionAnimal(
+                      animal: _padreSeleccionado,
+                      // 2026-10-22: "(opcional)" ya no aplica -- el Padre
+                      // ahora es obligatorio, igual que la Hembra.
+                      placeholder: _hembraSeleccionada == null
+                          ? 'Selecciona primero la hembra'
+                          : 'Padre -- toca para elegir',
+                      onRecargar:
+                          _hembraSeleccionada == null ? null : _elegirPadre,
+                      error: _padreSeleccionado == null,
                     ),
                     const SizedBox(height: 16),
                     InkWell(
@@ -322,15 +461,26 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
                     _SeccionLabel(
                         icono: Icons.edit_note, texto: '5. Observaciones'),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _notasCtrl,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                          hintText: 'Opcional', border: OutlineInputBorder()),
+                    // 2026-10-22 (punto 8): el cuadro de texto crece con el
+                    // contenido (maxLines: null) en vez de cortar el texto,
+                    // y AnimatedSize anima ese crecimiento en vez de que
+                    // salte de golpe.
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: TextFormField(
+                        controller: _notasCtrl,
+                        minLines: 3,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        decoration: const InputDecoration(
+                            hintText: 'Opcional', border: OutlineInputBorder()),
+                      ),
                     ),
                     const SizedBox(height: 20),
 
-                    // -- 6. Resumen del registro (NUEVO) --
+                    // -- 6. Resumen del registro --
                     _SeccionLabel(
                         icono: Icons.assignment_turned_in,
                         texto: '6. Resumen del registro'),
@@ -377,8 +527,8 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
     );
   }
 
-  /// Campo de solo lectura para datos "que se llenan solos" (raza del
-  /// padre/madre, encargado, fecha estimada de parto).
+  /// Campo de solo lectura para datos "que se llenan solos" (encargado,
+  /// fecha estimada de parto).
   Widget _campoAutoCompletado(
       {required String etiqueta, required String valor}) {
     return InputDecorator(
@@ -390,6 +540,184 @@ class _SeguimientoFormScreenState extends State<SeguimientoFormScreen> {
       child: Text(valor),
     );
   }
+}
+
+/// Pill con los datos del animal elegido (Nombre, ID, Especie) + un ícono
+/// 🔁 que reabre el selector -- mismo patrón para Hembra y Padre (puntos 4
+/// y 6 de la Parte 2, estilos). Cuando cambia el animal seleccionado, un
+/// AnimatedSwitcher hace una aparición de 0.5s en vez de un cambio brusco.
+class _PillSeleccionAnimal extends StatelessWidget {
+  final Animal? animal;
+  final String placeholder;
+  final VoidCallback? onRecargar;
+  final bool error;
+
+  const _PillSeleccionAnimal({
+    required this.animal,
+    required this.placeholder,
+    required this.onRecargar,
+    this.error = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      onTap: onRecargar,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+          border: Border.all(
+            color: error
+                ? AppTheme.error.withValues(alpha: 0.4)
+                : AppTheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          transitionBuilder: (child, animacion) => FadeTransition(
+            opacity: animacion,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(animacion),
+              child: child,
+            ),
+          ),
+          child: animal == null
+              ? Padding(
+                  key: const ValueKey('vacio'),
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(placeholder,
+                      style: const TextStyle(color: AppTheme.outline)),
+                )
+              : Row(
+                  key: ValueKey(animal!.id),
+                  children: [
+                    const Icon(Icons.pets, color: AppTheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(animal!.nombreVisible,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            'ID: ${animal!.codigo} · '
+                            '${animal!.especie?.nombre ?? "Especie —"}',
+                            style: const TextStyle(
+                                fontSize: 12, color: AppTheme.outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (onRecargar != null)
+                      IconButton(
+                        onPressed: onRecargar,
+                        icon: const Icon(Icons.autorenew,
+                            color: Color(0xFFE08B3A)),
+                        tooltip: 'Cambiar',
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill vertical seleccionable para "Tipo de evento" -- al elegirla se
+/// marca con "✅" y en amarillo (punto 5 de la Parte 2, estilos).
+class _PillTipoEvento extends StatelessWidget {
+  final String valor;
+  final IconData icono;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  const _PillTipoEvento({
+    required this.valor,
+    required this.icono,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: seleccionado
+              ? AppTheme.secondaryContainer
+              : AppTheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+          border: Border.all(
+            color: seleccionado
+                ? AppTheme.onSecondaryContainer.withValues(alpha: 0.3)
+                : AppTheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icono,
+                color: seleccionado
+                    ? AppTheme.onSecondaryContainer
+                    : AppTheme.outline),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                valor,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: seleccionado ? AppTheme.onSecondaryContainer : null,
+                ),
+              ),
+            ),
+            if (seleccionado) const _InsigniaCheck(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Insignia de "seleccionado/marcado" -- cuadradito con esquinas
+/// redondeadas, fondo verde y check blanco (en vez del emoji "✅" plano).
+/// La usan tanto "Hembra ✓ Seleccionada" como la pill de Tipo de evento
+/// elegida.
+class _InsigniaCheck extends StatelessWidget {
+  const _InsigniaCheck();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: Colors.green[600],
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: const Icon(Icons.check, color: Colors.white, size: 13),
+    );
+  }
+}
+
+/// Resultado del selector modal de animal -- distingue "cerró sin elegir"
+/// (el Future resuelve en `null`) de "eligió explícitamente Sin
+/// especificar" (resuelve en `_ResultadoSeleccion(null)`), algo que un
+/// simple `Animal?` no podía distinguir.
+class _ResultadoSeleccion {
+  final Animal? animal;
+  const _ResultadoSeleccion(this.animal);
 }
 
 class _SeccionLabel extends StatelessWidget {
@@ -412,7 +740,8 @@ class _SeccionLabel extends StatelessWidget {
 
 /// "Resumen del registro" (punto 6, nuevo) -- mismo patrón visual que ya
 /// usamos en Producción (pastilla "Verificación" + campos de solo lectura),
-/// para que el usuario revise todo antes de guardar.
+/// para que el usuario revise todo antes de guardar. (Punto 9 de la Parte
+/// 2, estilos: se conserva sin cambios.)
 class _ResumenRegistro extends StatelessWidget {
   final String hembra;
   final String tipo;

@@ -159,6 +159,10 @@ class _ReproduccionListaFiltradaScreenState
   }
 }
 
+/// 2026-10-22 (Tarea 5, sin mockup propio): restyle con el mismo lenguaje
+/// visual ya calcado del mockup de "Confirmar" en registrar_seguimiento_
+/// screen.dart -- tarjeta blanca redondeada con sombra suave, avatar
+/// circular, pill de estado con punto de color.
 class _TarjetaFiltrada extends StatelessWidget {
   final SeguimientoGestacion registro;
   final Color color;
@@ -174,45 +178,99 @@ class _TarjetaFiltrada extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(Icons.pregnant_woman, color: color),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      registro.animal?.nombreVisible ??
-                          'Animal #${registro.animalId}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        elevation: 0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
-              ),
-              Chip(
-                label:
-                    Text(registro.estado, style: const TextStyle(fontSize: 12)),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: color.withValues(alpha: 0.12),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, color: AppTheme.outline),
-            ],
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.pregnant_woman, color: color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        registro.animal?.nombreVisible ??
+                            'Animal #${registro.animalId}',
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today,
+                              size: 13, color: AppTheme.outline),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.onSurfaceVariant),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration:
+                            BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(registro.estado,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: color)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, color: AppTheme.outline),
+              ],
+            ),
           ),
         ),
       ),

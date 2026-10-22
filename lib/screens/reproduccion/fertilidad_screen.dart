@@ -17,6 +17,15 @@ import 'seguimiento_detalle_screen.dart';
 /// Un registro cuenta en un mes según `cerradoEn` (cuándo se cerró con ese
 /// resultado), no `fechaInseminacion` -- es la fecha que de verdad importa
 /// para "qué tan fértil fue este mes en resultados".
+///
+/// 2026-10-22 (Tarea 5, última pantalla, mockup "Metricas_de_fertilidad"):
+/// restyle calcado del mockup -- las donas quedan dentro de tarjetas
+/// blancas con sombra y con el total en el centro (antes el total se veía
+/// como etiqueta sobre cada porción, no en el centro de la dona), la pill
+/// de porcentaje y la leyenda con los conteos. Las tarjetas de la lista de
+/// abajo también se restylearon con el mismo lenguaje ya usado en el resto
+/// del módulo. La lógica de cálculo (fechaRealParto con respaldo en
+/// cerradoEn, Parida = éxito, Fallida/Abortada = fallo) no se tocó.
 class FertilidadScreen extends StatefulWidget {
   final ReproduccionRepository repository;
   final AnimalRepository animalRepository;
@@ -109,10 +118,14 @@ class _FertilidadScreenState extends State<FertilidadScreen> {
     final fallidosAnterior = _fallidosDe(mesAnterior);
 
     return Scaffold(
+      backgroundColor: AppTheme.surface,
       appBar: AppBar(
-        title: const Text('Fertilidad del mes'),
+        backgroundColor: AppTheme.surface,
+        elevation: 0,
+        title: const Text('Fertilidad Del Mes',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar)
+          IconButton(icon: const Icon(Icons.sync), onPressed: _cargar),
         ],
       ),
       body: _cargando
@@ -138,12 +151,25 @@ class _FertilidadScreenState extends State<FertilidadScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const Text(
-                        'Exitosos (Parida) vs Fallidos (Fallida + Abortada)',
-                        style: TextStyle(fontSize: 13, color: AppTheme.outline),
-                      ),
-                      const SizedBox(height: 12),
                       Row(
+                        children: [
+                          const Icon(Icons.info_outline,
+                              color: AppTheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Exitosos (Parida) vs Fallidos (Fallida + Abortada)',
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.onSurfaceVariant),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _TortaMes(
@@ -164,17 +190,21 @@ class _FertilidadScreenState extends State<FertilidadScreen> {
                       ),
                       const SizedBox(height: 20),
                       _SeccionLista(
-                        titulo: 'Exitosos este mes (${exitososActual.length})',
-                        color: Colors.green[700]!,
+                        titulo: 'Exitosos este mes',
+                        colorPrincipal: AppTheme.primary,
+                        colorChip: AppTheme.primaryContainer,
+                        colorAvatar: AppTheme.primaryContainer,
                         registros: exitososActual,
                         dateFormat: _dateFormat,
                         onTap: _abrirDetalle,
                         mensajeVacio: 'Ningún cierre exitoso este mes todavía',
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
                       _SeccionLista(
-                        titulo: 'Fallidos este mes (${fallidosActual.length})',
-                        color: Colors.red[700]!,
+                        titulo: 'Fallidos este mes',
+                        colorPrincipal: AppTheme.tertiary,
+                        colorChip: AppTheme.tertiaryContainer,
+                        colorAvatar: AppTheme.tertiaryContainer,
                         registros: fallidosActual,
                         dateFormat: _dateFormat,
                         onTap: _abrirDetalle,
@@ -187,6 +217,8 @@ class _FertilidadScreenState extends State<FertilidadScreen> {
   }
 }
 
+/// Tarjeta "Mes actual"/"Mes anterior" con la dona (total en el centro),
+/// la pill de porcentaje y la leyenda de conteos -- calcada del mockup.
 class _TortaMes extends StatelessWidget {
   final String etiqueta;
   final int exitosos;
@@ -202,71 +234,115 @@ class _TortaMes extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = exitosos + fallidos;
     final pct = total == 0 ? null : (exitosos / total) * 100;
+    final colorPct =
+        (pct == null || pct == 0) ? AppTheme.tertiary : AppTheme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Text(etiqueta,
               style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 8),
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 120,
-            child: total == 0
-                ? const Center(
-                    child: Text('Sin datos',
-                        style: TextStyle(color: AppTheme.outline)),
-                  )
-                : PieChart(
-                    PieChartData(
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 28,
-                      sections: [
-                        if (exitosos > 0)
-                          PieChartSectionData(
-                            value: exitosos.toDouble(),
-                            color: Colors.green[600],
-                            title: '$exitosos',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                        if (fallidos > 0)
-                          PieChartSectionData(
-                            value: fallidos.toDouble(),
-                            color: Colors.red[400],
-                            title: '$fallidos',
-                            radius: 42,
-                            titleStyle: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                      ],
-                    ),
-                  ),
+            width: 112,
+            height: 112,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                total == 0
+                    ? Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: AppTheme.surfaceContainerColor, width: 9),
+                        ),
+                      )
+                    : PieChart(
+                        PieChartData(
+                          sectionsSpace: 3,
+                          centerSpaceRadius: 37,
+                          startDegreeOffset: -90,
+                          sections: [
+                            if (fallidos > 0)
+                              PieChartSectionData(
+                                value: fallidos.toDouble(),
+                                color: AppTheme.tertiaryContainer,
+                                title: '',
+                                radius: 18,
+                                showTitle: false,
+                              ),
+                            if (exitosos > 0)
+                              PieChartSectionData(
+                                value: exitosos.toDouble(),
+                                color: AppTheme.primaryContainer,
+                                title: '',
+                                radius: 18,
+                                showTitle: false,
+                              ),
+                          ],
+                        ),
+                      ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('$total',
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w800)),
+                    Text(total == 1 ? 'SERVICIO' : 'SERVICIOS',
+                        style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                            color: AppTheme.onSurfaceVariant)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              pct == null
+                  ? 'Sin cierres'
+                  : '${pct.toStringAsFixed(0)}% exitoso',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w800, color: colorPct),
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            pct == null
-                ? 'Sin cierres aún'
-                : '${pct.toStringAsFixed(0)}% exitoso',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 10,
             children: [
-              _LeyendaColor(color: Colors.green[600]!, texto: 'Exitoso'),
-              _LeyendaColor(color: Colors.red[400]!, texto: 'Fallido'),
+              _LeyendaColor(
+                  colorLleno: AppTheme.primaryContainer,
+                  activo: exitosos > 0,
+                  texto: '$exitosos Éxito${exitosos == 1 ? '' : 's'}'),
+              _LeyendaColor(
+                  colorLleno: AppTheme.tertiaryContainer,
+                  activo: fallidos > 0,
+                  texto: '$fallidos Fallo${fallidos == 1 ? '' : 's'}'),
             ],
           ),
         ],
@@ -276,10 +352,12 @@ class _TortaMes extends StatelessWidget {
 }
 
 class _LeyendaColor extends StatelessWidget {
-  final Color color;
+  final Color colorLleno;
+  final bool activo;
   final String texto;
 
-  const _LeyendaColor({required this.color, required this.texto});
+  const _LeyendaColor(
+      {required this.colorLleno, required this.activo, required this.texto});
 
   @override
   Widget build(BuildContext context) {
@@ -287,12 +365,20 @@ class _LeyendaColor extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: activo ? colorLleno : AppTheme.outlineVariant,
+            shape: BoxShape.circle,
+          ),
+        ),
         const SizedBox(width: 4),
         Text(texto,
-            style: const TextStyle(fontSize: 10, color: AppTheme.outline)),
+            style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: activo ? FontWeight.w700 : FontWeight.w500,
+                color:
+                    activo ? AppTheme.onSurface : AppTheme.onSurfaceVariant)),
       ],
     );
   }
@@ -300,7 +386,9 @@ class _LeyendaColor extends StatelessWidget {
 
 class _SeccionLista extends StatelessWidget {
   final String titulo;
-  final Color color;
+  final Color colorPrincipal;
+  final Color colorChip;
+  final Color colorAvatar;
   final List<SeguimientoGestacion> registros;
   final DateFormat dateFormat;
   final void Function(SeguimientoGestacion) onTap;
@@ -308,7 +396,9 @@ class _SeccionLista extends StatelessWidget {
 
   const _SeccionLista({
     required this.titulo,
-    required this.color,
+    required this.colorPrincipal,
+    required this.colorChip,
+    required this.colorAvatar,
     required this.registros,
     required this.dateFormat,
     required this.onTap,
@@ -320,47 +410,159 @@ class _SeccionLista extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(titulo,
-            style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration:
+                        BoxDecoration(color: colorChip, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(titulo,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: colorPrincipal)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorChip,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text('${registros.length}',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.onSurface)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         if (registros.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
             child: Text(mensajeVacio,
-                style: const TextStyle(color: AppTheme.outline, fontSize: 13)),
+                style: const TextStyle(
+                    color: AppTheme.onSurfaceVariant, fontSize: 13)),
           )
         else
           for (final r in registros)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-                onTap: () => onTap(r),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.pregnant_woman, color: color, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                                r.animal?.nombreVisible ??
-                                    'Animal #${r.animalId}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            if (r.fechaRealParto != null || r.cerradoEn != null)
-                              Text(
-                                  'Fecha real: ${dateFormat.format(r.fechaRealParto ?? r.cerradoEn!)}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: AppTheme.outline)),
-                          ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Material(
+                color: AppTheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  onTap: () => onTap(r),
+                  child: Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                      const Icon(Icons.chevron_right, color: AppTheme.outline),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: colorAvatar.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child:
+                              Icon(Icons.pets, color: colorPrincipal, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 2,
+                                children: [
+                                  Text(
+                                      r.animal?.nombreVisible ??
+                                          'Animal #${r.animalId}',
+                                      style: const TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w800)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: colorChip,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(r.estado,
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.onSurface)),
+                                  ),
+                                ],
+                              ),
+                              if (r.fechaRealParto != null ||
+                                  r.cerradoEn != null) ...[
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.event,
+                                        size: 14, color: AppTheme.outline),
+                                    const SizedBox(width: 4),
+                                    Text.rich(
+                                      TextSpan(
+                                        style: const TextStyle(
+                                            fontSize: 12.5,
+                                            color: AppTheme.onSurfaceVariant),
+                                        children: [
+                                          const TextSpan(text: 'Fecha real: '),
+                                          TextSpan(
+                                            text: dateFormat.format(
+                                                r.fechaRealParto ??
+                                                    r.cerradoEn!),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                color: AppTheme.onSurface),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceContainerColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.chevron_right,
+                              color: AppTheme.onSurface, size: 18),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

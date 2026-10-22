@@ -74,6 +74,13 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
   String _filtroEstado =
       'Todos'; // Todos | Pendiente | Gestante | Parida | Abortada | Fallida
 
+  // 2026-10-21 (Parte 2, estilos, punto 7): paginación en el cliente --
+  // "si lo puedes hacer, haz que se filtren por pagina... unicamente
+  // 5xPag". El backend no soporta paginación todavía, así que se pagina
+  // sobre la lista ya filtrada en el teléfono.
+  static const _tamanoPagina = 5;
+  int _pagina = 0;
+
   // -- Búsqueda de machos activos --
   bool _buscarMachoAbierto = false;
   List<Especie> _especies = [];
@@ -199,6 +206,7 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
     setState(() {
       _machoFiltroId = macho.id;
       _machoFiltroNombre = macho.nombreVisible;
+      _pagina = 0;
     });
   }
 
@@ -206,6 +214,7 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
     setState(() {
       _machoFiltroId = null;
       _machoFiltroNombre = null;
+      _pagina = 0;
     });
   }
 
@@ -253,6 +262,17 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
     return lista;
   }
 
+  int get _totalPaginas =>
+      (_registrosFiltrados.length / _tamanoPagina).ceil().clamp(1, 999999);
+
+  List<SeguimientoGestacion> get _registrosPagina {
+    final todos = _registrosFiltrados;
+    final inicio = _pagina * _tamanoPagina;
+    if (inicio >= todos.length) return const [];
+    final fin = (inicio + _tamanoPagina).clamp(0, todos.length);
+    return todos.sublist(inicio, fin);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -262,10 +282,18 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar)
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _crear,
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo Evento'),
+      // 2026-10-21 (Parte 2, estilos, punto 9): texto en blanco (antes
+      // salía negro porque no se fijaba foregroundColor) y 10% más chico
+      // (Transform.scale sobre todo el botón, incluido el ícono).
+      floatingActionButton: Transform.scale(
+        scale: 0.9,
+        child: FloatingActionButton.extended(
+          onPressed: _crear,
+          backgroundColor: AppTheme.primaryContainer,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Nuevo Evento'),
+        ),
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
@@ -290,16 +318,36 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     children: [
+                      // 2026-10-21 (Parte 2, estilos): título pedido
+                      // literalmente "Panorama Reproductivo", por FUERA de
+                      // la pastilla que envuelve las burbujas (antes el
+                      // título estaba suelto y las burbujas no tenían
+                      // ningún contenedor propio).
                       const Text(
-                        'Panorama de reproducción',
+                        'Panorama Reproductivo',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 12),
-                      _BurbujasPanorama(
-                        registros: _registros,
-                        repository: widget.repository,
-                        animalRepository: widget.animalRepository,
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        // 2026-10-22: clipBehavior para que la pill
+                        // recorte de verdad su contenido (antes el fondo
+                        // rosado del Scaffold se asomaba por las esquinas
+                        // redondeadas de la pill, detrás de las burbujas).
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color: AppTheme.outlineVariant
+                                  .withValues(alpha: 0.5)),
+                        ),
+                        child: _BurbujasPanorama(
+                          registros: _registros,
+                          repository: widget.repository,
+                          animalRepository: widget.animalRepository,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       _BotonRegistrarSeguimiento(
@@ -322,15 +370,33 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
                         resultados: _machosEncontrados,
                         onSeleccionarMacho: _filtrarPorMacho,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+                      // 2026-10-21 (Parte 2, estilos): título/subtítulo
+                      // nuevos pedidos antes de los filtros.
+                      const Text(
+                        'Filtros de búsqueda por registro',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Encuentra seguimientos por tipo de evento o por estado',
+                        style: TextStyle(fontSize: 12, color: AppTheme.outline),
+                      ),
+                      const SizedBox(height: 12),
                       _FiltroTipo(
                         seleccionado: _filtroTipo,
-                        onChanged: (v) => setState(() => _filtroTipo = v),
+                        onChanged: (v) => setState(() {
+                          _filtroTipo = v;
+                          _pagina = 0;
+                        }),
                       ),
                       const SizedBox(height: 10),
                       _FiltroEstado(
                         seleccionado: _filtroEstado,
-                        onChanged: (v) => setState(() => _filtroEstado = v),
+                        onChanged: (v) => setState(() {
+                          _filtroEstado = v;
+                          _pagina = 0;
+                        }),
                       ),
                       if (_machoFiltroId != null) ...[
                         const SizedBox(height: 10),
@@ -359,13 +425,25 @@ class _ReproduccionListScreenState extends State<ReproduccionListScreen> {
                             ),
                           ),
                         )
-                      else
-                        for (final registro in _registrosFiltrados)
+                      else ...[
+                        for (final registro in _registrosPagina)
                           _TarjetaSeguimiento(
                             registro: registro,
                             dateFormat: _dateFormat,
                             onTap: () => _abrirDetalleSoloLectura(registro),
                           ),
+                        if (_totalPaginas > 1)
+                          _ControlesPagina(
+                            paginaActual: _pagina,
+                            totalPaginas: _totalPaginas,
+                            onAnterior: _pagina > 0
+                                ? () => setState(() => _pagina--)
+                                : null,
+                            onSiguiente: _pagina < _totalPaginas - 1
+                                ? () => setState(() => _pagina++)
+                                : null,
+                          ),
+                      ],
                       const SizedBox(height: 20),
                       _BotonHistorial(onPressed: _abrirHistorial),
                     ],
@@ -487,7 +565,10 @@ class _BurbujasPanorama extends StatelessWidget {
         icono: Icons.hourglass_top,
         color: AppTheme.secondary,
         valor: '$partosPendientes',
-        etiqueta: 'Partos pendientes',
+        // 2026-10-21 (Parte 2, estilos): nombre pedido explícitamente
+        // "Pendientes" en la burbuja (el título de la pantalla que abre
+        // sigue diciendo "Partos pendientes", más descriptivo).
+        etiqueta: 'Pendientes',
         onTap: () => abrirLista(
           titulo: 'Partos pendientes',
           icono: Icons.hourglass_top,
@@ -500,7 +581,7 @@ class _BurbujasPanorama extends StatelessWidget {
         icono: Icons.celebration_outlined,
         color: AppTheme.tertiary,
         valor: '$partosEsteMes',
-        etiqueta: 'Partos este mes',
+        etiqueta: 'Partos Este Mes',
         onTap: () => abrirLista(
           titulo: 'Partos este mes',
           icono: Icons.celebration_outlined,
@@ -515,9 +596,14 @@ class _BurbujasPanorama extends StatelessWidget {
         valor: fertilidadActual == null
             ? 'Sin datos'
             : '${fertilidadActual.toStringAsFixed(0)}%',
-        etiqueta: deltaFertilidad == null
-            ? 'Fertilidad del mes'
-            : 'Fertilidad (${deltaFertilidad >= 0 ? '+' : ''}${deltaFertilidad.toStringAsFixed(0)} pts vs mes ant.)',
+        // 2026-10-21 (Parte 2, estilos): la etiqueta pedida es literalmente
+        // "Fertilidad" -- el detalle del delta vs. el mes anterior ya no va
+        // en el mismo texto (se complicaba de leer en 2 líneas); ahora es
+        // un renglón aparte, más chico, debajo.
+        etiqueta: 'Fertilidad',
+        subEtiqueta: deltaFertilidad == null
+            ? null
+            : '${deltaFertilidad >= 0 ? '+' : ''}${deltaFertilidad.toStringAsFixed(0)} pts vs mes ant.',
         onTap: abrirFertilidad,
       ),
     ];
@@ -526,10 +612,12 @@ class _BurbujasPanorama extends StatelessWidget {
       // 2026-10-21 (segundo ajuste): 104 se quedaba corto para la etiqueta
       // de Fertilidad cuando trae el "(+N pts vs mes ant.)" en 2 líneas --
       // el primer intento con Expanded "arreglaba" el overflow pero
-      // aplastaba el texto hasta hacerlo ilegible. Se sube la tarjeta a
-      // 124 y se usan espaciados fijos (ver _BurbujaCard) en vez de
+      // aplastaba el texto hasta hacerlo ilegible. Se sube la tarjeta y se
+      // usan espaciados fijos (ver _BurbujaCard) en vez de
       // Expanded/spaceBetween, para que el texto tenga su alto real.
-      height: 124,
+      // 2026-10-22: ahora son círculos de _BurbujaCard._diametro (128), así
+      // que la altura de la fila debe coincidir con ese diámetro.
+      height: _BurbujaCard._diametro,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: burbujas.length,
@@ -545,6 +633,9 @@ class _DatoBurbuja {
   final Color color;
   final String valor;
   final String etiqueta;
+  // 2026-10-21 (Parte 2, estilos): renglón chico opcional debajo de la
+  // etiqueta -- hoy solo lo usa Fertilidad, para el delta vs. mes anterior.
+  final String? subEtiqueta;
   final VoidCallback onTap;
 
   const _DatoBurbuja({
@@ -552,6 +643,7 @@ class _DatoBurbuja {
     required this.color,
     required this.valor,
     required this.etiqueta,
+    this.subEtiqueta,
     required this.onTap,
   });
 }
@@ -561,31 +653,42 @@ class _BurbujaCard extends StatelessWidget {
 
   const _BurbujaCard({required this.dato});
 
+  // 2026-10-21 (ajuste a pedido): "que las burbujas sean circulares, se
+  // estan saliendo de la pill" -- antes eran tarjetas rectangulares con
+  // esquinas redondeadas que no combinaban con la pill exterior (radio
+  // 999) que las envuelve; ahora son círculos de verdad (mismo ancho y
+  // alto, shape: BoxShape.circle), que además encajan mejor dentro de esa
+  // pill.
+  static const double _diametro = 128;
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
+      shape: const CircleBorder(),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        customBorder: const CircleBorder(),
         onTap: dato.onTap,
         child: Container(
-          width: 148,
+          width: _diametro,
+          height: _diametro,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: dato.color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+            shape: BoxShape.circle,
             border: Border.all(color: dato.color.withValues(alpha: 0.2)),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(dato.icono, color: dato.color, size: 22),
-              const SizedBox(height: 6),
+              Icon(dato.icono, color: dato.color, size: 20),
+              const SizedBox(height: 4),
               Text(dato.valor,
                   style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
               // 2026-10-21 (segundo ajuste): ya NO usa Expanded (eso
               // aplastaba el texto hasta hacerlo ilegible). Con
               // mainAxisSize.min + la tarjeta en 124 de alto, el texto
@@ -594,10 +697,21 @@ class _BurbujaCard extends StatelessWidget {
               // más largo.
               Text(
                 dato.etiqueta,
-                style: TextStyle(fontSize: 11, color: AppTheme.outline),
-                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: AppTheme.outline),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (dato.subEtiqueta != null)
+                Text(
+                  dato.subEtiqueta!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 8,
+                      color: AppTheme.outline.withValues(alpha: 0.8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
             ],
           ),
         ),
@@ -616,7 +730,10 @@ class _BotonRegistrarSeguimiento extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF8BC98F),
+      // 2026-10-21 (Parte 2, estilos): "se ve muy verde pálido" -- se
+      // cambia al mismo verde vivo de marca que ya usan los botones
+      // principales del resto de la app (AppTheme.primaryContainer).
+      color: AppTheme.primaryContainer,
       borderRadius: BorderRadius.circular(32),
       child: InkWell(
         borderRadius: BorderRadius.circular(32),
@@ -629,7 +746,7 @@ class _BotonRegistrarSeguimiento extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: const BoxDecoration(
-                    color: Color(0xFF3F6B4A), shape: BoxShape.circle),
+                    color: AppTheme.onPrimaryContainer, shape: BoxShape.circle),
                 child: const Icon(Icons.add, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
@@ -733,7 +850,25 @@ class _BuscadorMachosActivos extends StatelessWidget {
       ...especies.map((e) => e.nombre).where(_especiesPermitidas.contains),
     ];
 
-    return Card(
+    // 2026-10-21 (Parte 2, estilos): se cambia el Card plano por un
+    // Container con sombra/borde sutiles (~5% de opacidad, pedido
+    // explícito) para que se note claramente dónde empieza y termina el
+    // buscador -- y el contenido desplegable ahora usa AnimatedSize para
+    // que aparezca/desaparezca con una animación suave en vez de un salto
+    // instantáneo.
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.onSurface.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -741,82 +876,98 @@ class _BuscadorMachosActivos extends StatelessWidget {
             leading: const Icon(Icons.search, color: AppTheme.primary),
             title: const Text('Buscar machos activos'),
             subtitle: const Text('Toros y cerdos disponibles para monta'),
-            trailing: Icon(abierto ? Icons.expand_less : Icons.expand_more),
+            trailing: AnimatedRotation(
+              turns: abierto ? 0.5 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: const Icon(Icons.expand_more),
+            ),
             onTap: onToggle,
           ),
-          if (abierto)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Nombre o código...',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: onTextoCambio,
-                    onSubmitted: (_) => onBuscar(),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final opcion in opcionesFiltro.isEmpty
-                          ? ['Todos']
-                          : opcionesFiltro)
-                        ChoiceChip(
-                          label: Text(opcion == 'Todos'
-                              ? 'Todos'
-                              : 'Solo ${opcion == 'Bovino' ? 'Toros' : 'Cerdos'}'),
-                          selected: filtroEspecie == opcion,
-                          onSelected: (_) => onFiltroEspecie(opcion),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: !abierto
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            hintText: 'Nombre o código...',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onChanged: onTextoCambio,
+                          onSubmitted: (_) => onBuscar(),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  FilledButton.tonal(
-                    onPressed: buscando ? null : onBuscar,
-                    child: buscando
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Buscar'),
-                  ),
-                  if (resultados.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    for (final macho in resultados)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading:
-                            const Icon(Icons.male, color: AppTheme.primary),
-                        title: Text('${macho.nombreVisible} (${macho.codigo})'),
-                        subtitle: Text(macho.especie?.nombre ??
-                            'Especie #${macho.especieId}'),
-                        trailing: const Icon(Icons.filter_alt_outlined,
-                            size: 18, color: AppTheme.outline),
-                        onTap: () => onSeleccionarMacho(macho),
-                      ),
-                  ] else if (!buscando)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text('Sin resultados todavía',
-                          style: TextStyle(color: AppTheme.outline)),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final opcion in opcionesFiltro.isEmpty
+                                ? ['Todos']
+                                : opcionesFiltro)
+                              ChoiceChip(
+                                label: Text(opcion == 'Todos'
+                                    ? 'Todos'
+                                    : 'Solo ${opcion == 'Bovino' ? 'Toros' : 'Cerdos'}'),
+                                selected: filtroEspecie == opcion,
+                                onSelected: (_) => onFiltroEspecie(opcion),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        FilledButton.tonal(
+                          onPressed: buscando ? null : onBuscar,
+                          child: buscando
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Buscar'),
+                        ),
+                        if (resultados.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          for (final macho in resultados)
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.male,
+                                  color: AppTheme.primary),
+                              title: Text(
+                                  '${macho.nombreVisible} (${macho.codigo})'),
+                              subtitle: Text(macho.especie?.nombre ??
+                                  'Especie #${macho.especieId}'),
+                              trailing: const Icon(Icons.filter_alt_outlined,
+                                  size: 18, color: AppTheme.outline),
+                              onTap: () => onSeleccionarMacho(macho),
+                            ),
+                        ] else if (!buscando)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text('Sin resultados todavía',
+                                style: TextStyle(color: AppTheme.outline)),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-            ),
+                  ),
+          ),
         ],
       ),
     );
   }
 }
 
+/// "FILTRO 1" del punto 6 de la Parte 2 (estilos): como son exactamente 3
+/// opciones, se reparten en una sola pastilla dividida en 3 tercios iguales
+/// (33.3% del ancho cada una) en vez de chips sueltos -- un segmented
+/// control, estilo Stitch.
 class _FiltroTipo extends StatelessWidget {
   final String seleccionado;
   final void Function(String) onChanged;
@@ -826,24 +977,57 @@ class _FiltroTipo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const opciones = ['Todos', 'IA', 'Monta natural'];
-    return Wrap(
-      spacing: 8,
-      children: [
-        for (final opcion in opciones)
-          ChoiceChip(
-            label: Text(opcion),
-            selected: seleccionado == opcion,
-            onSelected: (_) => onChanged(opcion),
-          ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          for (final opcion in opciones)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(opcion),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: seleccionado == opcion
+                        ? AppTheme.primaryContainer
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    opcion,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: seleccionado == opcion
+                          ? Colors.white
+                          : AppTheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-/// Filtro por estado (2026-10-20, nuevo a pedido): además de Pendiente y
-/// Gestante (los estados "activos"), ahora deja filtrar puntualmente por
-/// Parida, Abortada o Fallida -- útil para revisar el historial cerrado sin
-/// desplazarte por toda la lista.
+/// "FILTRO 2" del punto 6 de la Parte 2 (estilos): con 6 estados posibles,
+/// en vez de la figura de trapecio (geométricamente frágil en pantallas
+/// angostas) se usa la alternativa que Dany misma ofreció -- chips
+/// deslizables horizontalmente, mismo patrón que las burbujas del
+/// panorama.
+///
+/// Además de Pendiente y Gestante (los estados "activos"), deja filtrar
+/// puntualmente por Parida, Abortada o Fallida -- útil para revisar el
+/// historial cerrado sin desplazarte por toda la lista.
 class _FiltroEstado extends StatelessWidget {
   final String seleccionado;
   final void Function(String) onChanged;
@@ -860,17 +1044,59 @@ class _FiltroEstado extends StatelessWidget {
       'Abortada',
       'Fallida',
     ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: [
-        for (final opcion in opciones)
-          ChoiceChip(
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: opciones.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final opcion = opciones[i];
+          return ChoiceChip(
             label: Text(opcion),
             selected: seleccionado == opcion,
             onSelected: (_) => onChanged(opcion),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Controles simples de paginación (2026-10-21, Parte 2 estilos, punto 7):
+/// paginación en el cliente, 5 registros por página.
+class _ControlesPagina extends StatelessWidget {
+  final int paginaActual;
+  final int totalPaginas;
+  final VoidCallback? onAnterior;
+  final VoidCallback? onSiguiente;
+
+  const _ControlesPagina({
+    required this.paginaActual,
+    required this.totalPaginas,
+    required this.onAnterior,
+    required this.onSiguiente,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: onAnterior,
+            icon: const Icon(Icons.chevron_left_rounded),
           ),
-      ],
+          Text('Página ${paginaActual + 1} de $totalPaginas',
+              style: const TextStyle(fontSize: 12, color: AppTheme.outline)),
+          IconButton(
+            onPressed: onSiguiente,
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -907,6 +1133,21 @@ class _TarjetaSeguimiento extends StatelessWidget {
     }
   }
 
+  // 2026-10-21 (Parte 2, estilos): punto 7 -- "Fecha inseminación & Parto
+  // (en caso de paridas) o fecha de confirmación". Se arma un solo texto
+  // con lo que haya disponible, en ese orden de prioridad.
+  String get _detalleFechas {
+    final partes = <String>[
+      'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}',
+    ];
+    if (registro.fechaRealParto != null) {
+      partes.add('Parto: ${dateFormat.format(registro.fechaRealParto!)}');
+    } else if (registro.confirmadoEn != null) {
+      partes.add('Confirmado: ${dateFormat.format(registro.confirmadoEn!)}');
+    }
+    return partes.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -927,29 +1168,49 @@ class _TarjetaSeguimiento extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          registro.animal?.nombreVisible ??
-                              'Animal #${registro.animalId}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Flexible(
+                          child: Text(
+                            registro.animal?.nombreVisible ??
+                                'Animal #${registro.animalId}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        Text(
-                          'Inseminación: ${dateFormat.format(registro.fechaInseminacion)}'
-                          '${registro.fechaEstimadaParto != null ? ' · Parto est.: ${dateFormat.format(registro.fechaEstimadaParto!)}' : ''}',
-                          style: const TextStyle(fontSize: 12),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _colorEstado.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            registro.estado,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _colorEstado),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  Chip(
-                    label: Text(registro.estado,
-                        style: const TextStyle(fontSize: 12)),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: _colorEstado.withValues(alpha: 0.12),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              // Pill rectangular con las fechas -- punto 7 de la Parte 2.
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child:
+                    Text(_detalleFechas, style: const TextStyle(fontSize: 12)),
               ),
               const SizedBox(height: 8),
               _LineaAuditoria(registro: registro),

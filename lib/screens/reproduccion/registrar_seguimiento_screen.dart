@@ -9,6 +9,15 @@ import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../../theme/app_theme.dart';
 import '../animales/animal_form_screen.dart';
 
+// 2026-10-22: colores "fixed" del token Stitch (DESIGN.md del mockup
+// `registrar_seguimiento_a_registro_reproductivo_confirmar`) que AppTheme
+// todavía no define -- se usan solo acá, calcados tal cual del mockup, en
+// vez de aproximarlos con los tokens existentes.
+const _secondaryFixed = Color(0xFFFFDF9E);
+const _onSecondaryFixed = Color(0xFF261A00);
+const _primaryFixed = Color(0xFF94F990);
+const _onPrimaryFixed = Color(0xFF002204);
+
 /// "Registrar Seguimiento" (2026-10-19, corregido): pantalla UNIFICADA de
 /// avance de un seguimiento ya existente. Todo lo que es "Confirmar" o
 /// "Parto natural/Aborto" vive EXCLUSIVAMENTE dentro de esta pantalla --
@@ -220,7 +229,11 @@ class _FormularioAvanceState extends State<_FormularioAvance> {
   // se cierra directo, sin pasar por Gestante). Agregado 2026-10-20 a
   // pedido explícito: antes no existía forma de cerrar un seguimiento
   // fallido sin pasar primero por "Confirmar".
-  String _accionPendiente = 'confirmar';
+  // 2026-10-22 (mockup "registrar_seguimiento_a_registro_reproductivo_
+  // confirmar"): empieza sin elegir ninguna (null) -- igual que el mockup,
+  // que exige tocar "Confirmar Gestación" o "Marcar Fallida" antes de
+  // poder guardar (antes quedaba "Confirmar" preseleccionado de una vez).
+  String? _accionPendiente;
 
   bool _guardando = false;
   String? _error;
@@ -253,6 +266,15 @@ class _FormularioAvanceState extends State<_FormularioAvance> {
 
     final s = widget.seguimiento;
     int cantidadCrias = 0;
+
+    // 2026-10-22 (mockup): "Guardar Seguimiento" exige haber tocado antes
+    // "Confirmar Gestación" o "Marcar Fallida" -- igual que el alert() del
+    // mockup ("Por favor selecciona una acción").
+    if (s.estaPendiente && _accionPendiente == null) {
+      setState(
+          () => _error = 'Selecciona "Confirmar Gestación" o "Marcar Fallida"');
+      return;
+    }
 
     if (s.estaGestante) {
       if (_resultado == 'Parida' && _fechaRealParto == null) {
@@ -397,25 +419,122 @@ class _FormularioAvanceState extends State<_FormularioAvance> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        'Animal (hembra): ${s.animal?.nombreVisible ?? '#${s.animalId}'}',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    if (s.macho != null)
-                      Text('Macho: ${s.macho!.nombreVisible}'),
-                    Text('Estado actual: ${s.estado}'),
-                    Text(
-                        'Inseminación: ${widget.dateFormat.format(s.fechaInseminacion)}'),
-                    if (s.fechaEstimadaParto != null)
-                      Text(
-                          'Parto estimado: ${widget.dateFormat.format(s.fechaEstimadaParto!)}'),
-                  ],
-                ),
+            // 2026-10-22: tarjeta "ficha" del animal, calcada del mockup
+            // Stitch `registrar_seguimiento_a_registro_reproductivo_
+            // confirmar` -- avatar + nombre arriba, y debajo una caja
+            // interna con cada dato en fila (icono + etiqueta a la
+            // izquierda, valor a la derecha).
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        margin: const EdgeInsets.only(top: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.pets,
+                            color: AppTheme.primary, size: 24),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.animal?.nombreVisible ?? '#${s.animalId}',
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                'Hembra${s.animal?.codigo != null ? ' • ID #${s.animal!.codigo}' : ''}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.secondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceContainerLow,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
+                    ),
+                    child: Column(
+                      children: [
+                        _FilaDato(
+                          icono: Icons.male,
+                          etiqueta: 'Padre:',
+                          valor: s.macho?.nombreVisible ?? 'ANIMAL EXTERNO',
+                        ),
+                        const SizedBox(height: 10),
+                        _FilaEstado(estado: s.estado),
+                        const SizedBox(height: 10),
+                        _FilaDato(
+                          icono: Icons.calendar_today,
+                          etiqueta: 'Inseminación:',
+                          valor: widget.dateFormat.format(s.fechaInseminacion),
+                        ),
+                        if (s.fechaEstimadaParto != null) ...[
+                          const SizedBox(height: 10),
+                          _FilaDato(
+                            // 2026-10-22: el mockup usa el ícono Material
+                            // Symbols "event_upcoming", que no existe en el
+                            // set clásico de Material Icons que trae
+                            // Flutter -- "event_available" es el más
+                            // parecido visualmente (calendario con check).
+                            icono: Icons.event_available,
+                            iconoColor: AppTheme.primary,
+                            etiqueta: 'Parto estimado:',
+                            valor:
+                                widget.dateFormat.format(s.fechaEstimadaParto!),
+                            valorColor: AppTheme.primary,
+                            valorBold: true,
+                          ),
+                        ],
+                        if (s.creadoPor != null) ...[
+                          const SizedBox(height: 10),
+                          _FilaDato(
+                            icono: Icons.badge_outlined,
+                            etiqueta: 'Creado por:',
+                            valor: s.creadoPor!.nombreUsuario,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             // 2026-10-20: muestra las observaciones que ya tenía el
@@ -423,126 +542,584 @@ class _FormularioAvanceState extends State<_FormularioAvance> {
             // anterior) ANTES de pedir la nueva -- ojo, al guardar este
             // paso ese campo se sobreescribe (no hay una columna separada
             // por paso), así que esto es la única oportunidad de verlas
-            // antes de reemplazarlas.
+            // antes de reemplazarlas. 2026-10-22: restyle calcado del
+            // mockup -- encabezado con icono de nota + caja "candado" de
+            // solo lectura.
             if (s.notas != null && s.notas!.trim().isNotEmpty) ...[
               const SizedBox(height: 16),
-              Card(
-                color: AppTheme.surfaceContainerHigh,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Observaciones registradas hasta ahora',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(s.notas!),
-                    ],
-                  ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.sticky_note_2,
+                            color: AppTheme.secondary, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Observaciones registradas hasta ahora',
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.secondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceContainerLowest
+                            .withValues(alpha: 0.4),
+                        border: Border.all(
+                            color:
+                                AppTheme.outlineVariant.withValues(alpha: 0.3)),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusDefault),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              s.notas!,
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                  color: AppTheme.onSurfaceVariant),
+                            ),
+                          ),
+                          const Icon(Icons.lock,
+                              size: 18, color: AppTheme.outline),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             if (s.estaPendiente) ...[
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                      value: 'confirmar',
-                      label: Text('Confirmar gestación'),
-                      icon: Icon(Icons.check_circle_outline)),
-                  ButtonSegment(
-                      value: 'fallida',
-                      label: Text('Marcar fallida'),
-                      icon: Icon(Icons.highlight_off)),
-                ],
-                selected: {_accionPendiente},
-                onSelectionChanged: (sel) =>
-                    setState(() => _accionPendiente = sel.first),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _accionPendiente == 'fallida'
-                    ? 'Al marcar como fallida, este seguimiento se cierra directamente (sin pasar por "Gestante") -- la IA/monta no resultó en preñez.'
-                    : 'Al confirmar, este seguimiento pasa de "Pendiente" a "Gestante".',
+              // 2026-10-22: sección "Resultado del Chequeo" calcada del
+              // mockup -- los dos botones grandes solo ELIGEN (como el
+              // SegmentedButton de antes), el guardado real lo hace el
+              // botón "Guardar Seguimiento" de abajo.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Resultado del Chequeo',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _accionPendiente == null
+                                ? AppTheme.surfaceContainerColor
+                                : (_accionPendiente == 'confirmar'
+                                    ? _primaryFixed
+                                    : AppTheme.errorContainer),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            _accionPendiente == null
+                                ? 'Selecciona uno'
+                                : (_accionPendiente == 'confirmar'
+                                    ? 'Seleccionado: Gestante'
+                                    : 'Seleccionado: Fallida'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _accionPendiente == null
+                                  ? AppTheme.onSurfaceVariant
+                                  : (_accionPendiente == 'confirmar'
+                                      ? _onPrimaryFixed
+                                      : AppTheme.onErrorContainer),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _BotonResultado(
+                            icono: Icons.check_circle,
+                            etiqueta: 'Confirmar\nGestación',
+                            colorFondo: AppTheme.primaryContainer,
+                            colorTexto: AppTheme.onPrimaryContainer,
+                            seleccionado: _accionPendiente == 'confirmar',
+                            atenuado: _accionPendiente == 'fallida',
+                            onTap: () =>
+                                setState(() => _accionPendiente = 'confirmar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _BotonResultado(
+                            icono: Icons.cancel,
+                            etiqueta: 'Marcar\nFallida',
+                            colorFondo: AppTheme.error,
+                            colorTexto: Colors.white,
+                            seleccionado: _accionPendiente == 'fallida',
+                            atenuado: _accionPendiente == 'confirmar',
+                            onTap: () =>
+                                setState(() => _accionPendiente = 'fallida'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceContainerLow,
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusDefault),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.help_outline,
+                                color: AppTheme.secondary, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    height: 1.4,
+                                    color: AppTheme.secondary),
+                                children: [
+                                  TextSpan(
+                                      text: 'Confirmar ',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  TextSpan(
+                                      text:
+                                          'pasa el seguimiento de "Pendiente" a "Gestante". '),
+                                  TextSpan(
+                                      text: 'Marcar como fallida ',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  TextSpan(
+                                      text:
+                                          'lo cierra directamente sin pasar por "Gestante" -- úsalo cuando la IA/monta no resultó en preñez.'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _notasCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: _accionPendiente == 'fallida'
-                      ? 'Motivo (obligatorio)'
-                      : 'Observación / corrección (obligatoria)',
-                  border: const OutlineInputBorder(),
+              // Sección "Observación / corrección" -- mismo patrón de
+              // auto-expansión ya usado en el formulario de creación
+              // (punto 8), dentro de la tarjeta calcada del mockup.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Este campo es obligatorio'
-                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.edit_note,
+                                color: AppTheme.outline, size: 18),
+                            SizedBox(width: 6),
+                            Text('Observación / corrección',
+                                style: TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'Obligatoria *',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: TextFormField(
+                        controller: _notasCtrl,
+                        minLines: 3,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppTheme.surfaceContainerLow,
+                          hintText: _accionPendiente == 'fallida'
+                              ? 'Escribe aquí el motivo por el que no resultó...'
+                              : 'Escribe aquí la observación o diagnóstico del veterinario/palpador...',
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusDefault),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Este campo es obligatorio'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(Icons.history, size: 16, color: AppTheme.outline),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'El comentario ingresado actualizará el historial del servicio.',
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                  ),
+                  onPressed: _guardando ? null : _guardar,
+                  icon: _guardando
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.save, size: 20),
+                  label: const Text('Guardar Seguimiento'),
+                ),
               ),
             ] else ...[
-              const Text('Registrar parto / aborto',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                      value: 'Parida',
-                      label: Text('Parto natural'),
-                      icon: Icon(Icons.pets)),
-                  ButtonSegment(
-                      value: 'Abortada',
-                      label: Text('Aborto'),
-                      icon: Icon(Icons.cancel_outlined)),
-                ],
-                selected: {_resultado},
-                onSelectionChanged: (sel) =>
-                    setState(() => _resultado = sel.first),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: _elegirFechaRealParto,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                      labelText: 'Fecha real del parto',
-                      border: OutlineInputBorder()),
-                  child: Text(_fechaRealParto != null
-                      ? widget.dateFormat.format(_fechaRealParto!)
-                      : 'Sin definir'),
+              // 2026-10-22 (Fase 3, "Cerrar"): mismo lenguaje visual que la
+              // Fase 2 (Confirmar) -- no hay mockup específico para esta
+              // pantalla todavía, así que reutilizo las mismas tarjetas,
+              // botones grandes e íconos ya calcados del mockup de
+              // "Confirmar" para que las dos fases se vean consistentes.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Resultado del Parto',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _resultado == 'Parida'
+                                ? _primaryFixed
+                                : AppTheme.errorContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            _resultado == 'Parida'
+                                ? 'Seleccionado: Parto natural'
+                                : 'Seleccionado: Aborto',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _resultado == 'Parida'
+                                  ? _onPrimaryFixed
+                                  : AppTheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _BotonResultado(
+                            icono: Icons.pets,
+                            etiqueta: 'Parto\nNatural',
+                            colorFondo: AppTheme.primaryContainer,
+                            colorTexto: AppTheme.onPrimaryContainer,
+                            seleccionado: _resultado == 'Parida',
+                            atenuado: _resultado == 'Abortada',
+                            onTap: () => setState(() => _resultado = 'Parida'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _BotonResultado(
+                            icono: Icons.cancel,
+                            etiqueta: 'Aborto',
+                            colorFondo: AppTheme.error,
+                            colorTexto: Colors.white,
+                            seleccionado: _resultado == 'Abortada',
+                            atenuado: _resultado == 'Parida',
+                            onTap: () =>
+                                setState(() => _resultado = 'Abortada'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              if (_resultado == 'Parida') ...[
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _criasCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Cantidad de crías',
-                    helperText:
-                        'Por cada una se abrirá el formulario de Animales con la Madre y el Padre ya puestos.',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) {
-                    final n = int.tryParse((v ?? '').trim());
-                    if (n == null || n < 1)
-                      return 'Indica un número mayor o igual a 1';
-                    return null;
-                  },
-                ),
-              ],
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _notasCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Nota (obligatoria)',
-                  border: OutlineInputBorder(),
+              // Tarjeta de "Fecha real del parto" (+ cantidad de crías,
+              // solo si el resultado es Parto natural) -- mismo estilo de
+              // tarjeta blanca con sombra usado en el resto de la pantalla.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Esta nota es obligatoria'
-                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
+                      onTap: _elegirFechaRealParto,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLow,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusDefault),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today,
+                                size: 18, color: AppTheme.outline),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text('Fecha real del parto',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.onSurfaceVariant)),
+                            ),
+                            Text(
+                              _fechaRealParto != null
+                                  ? widget.dateFormat.format(_fechaRealParto!)
+                                  : 'Sin definir',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_resultado == 'Parida') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _criasCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppTheme.surfaceContainerLow,
+                          labelText: 'Cantidad de crías',
+                          helperText:
+                              'Por cada una se abrirá el formulario de Animales con la Madre y el Padre ya puestos.',
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusDefault),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        validator: (v) {
+                          final n = int.tryParse((v ?? '').trim());
+                          if (n == null || n < 1) {
+                            return 'Indica un número mayor o igual a 1';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Tarjeta de la nota -- mismo patrón de auto-expansión y
+              // chip "Obligatoria *" ya usado en la Fase 2.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.edit_note,
+                                color: AppTheme.outline, size: 18),
+                            SizedBox(width: 6),
+                            Text('Nota',
+                                style: TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'Obligatoria *',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.onErrorContainer),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: TextFormField(
+                        controller: _notasCtrl,
+                        minLines: 3,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppTheme.surfaceContainerLow,
+                          hintText: _resultado == 'Parida'
+                              ? 'Escribe aquí cómo fue el parto...'
+                              : 'Escribe aquí el motivo o diagnóstico del aborto...',
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusDefault),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Esta nota es obligatoria'
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             if (_error != null) ...[
@@ -550,22 +1127,213 @@ class _FormularioAvanceState extends State<_FormularioAvance> {
               Text(_error!, style: const TextStyle(color: Colors.red)),
             ],
             const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _guardando ? null : _guardar,
-              child: _guardando
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(s.estaPendiente
-                      ? (_accionPendiente == 'fallida'
-                          ? 'Marcar como fallida'
-                          : 'Confirmar')
-                      : 'Guardar'),
-            ),
+            // 2026-10-22: este botón genérico ya solo aplica a la Fase 3
+            // (Gestante -> Parto/Aborto) -- en Pendiente, "Confirmar
+            // Gestación" / "Marcar Fallida" (arriba) guardan directo.
+            if (!s.estaPendiente)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                  ),
+                  onPressed: _guardando ? null : _guardar,
+                  icon: _guardando
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.save, size: 20),
+                  label: const Text('Guardar Cierre'),
+                ),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila "icono + etiqueta ... valor", usada dentro de la caja de datos de
+/// la burbuja-resumen (ver mockup `registrar_seguimiento_a_registro_
+/// reproductivo_confirmar`: Padre / Inseminación / Parto estimado / Creado
+/// por comparten exactamente este layout, solo cambia el icono y si el
+/// valor va en negrita/color).
+class _FilaDato extends StatelessWidget {
+  final IconData icono;
+  final Color iconoColor;
+  final String etiqueta;
+  final String valor;
+  final Color? valorColor;
+  final bool valorBold;
+
+  const _FilaDato({
+    required this.icono,
+    this.iconoColor = AppTheme.outline,
+    required this.etiqueta,
+    required this.valor,
+    this.valorColor,
+    this.valorBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icono, size: 18, color: iconoColor),
+            const SizedBox(width: 6),
+            Text(etiqueta,
+                style: const TextStyle(
+                    fontSize: 14, color: AppTheme.onSurfaceVariant)),
+          ],
+        ),
+        Flexible(
+          child: Text(
+            valor,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: valorBold ? FontWeight.w800 : FontWeight.w700,
+              color: valorColor ?? AppTheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Fila especial para "Estado actual:", con la pill de color propia del
+/// estado (en vez de texto plano como el resto de filas) -- igual al
+/// mockup, que usa `secondary-fixed` para "Pendiente".
+class _FilaEstado extends StatelessWidget {
+  final String estado;
+
+  const _FilaEstado({required this.estado});
+
+  @override
+  Widget build(BuildContext context) {
+    final esPendiente = estado == 'Pendiente';
+    final fondo = esPendiente ? _secondaryFixed : _primaryFixed;
+    final texto = esPendiente ? _onSecondaryFixed : _onPrimaryFixed;
+    final punto = esPendiente ? AppTheme.secondary : AppTheme.primary;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.sync, size: 18, color: AppTheme.outline),
+            SizedBox(width: 6),
+            Text('Estado actual:',
+                style:
+                    TextStyle(fontSize: 14, color: AppTheme.onSurfaceVariant)),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          decoration: BoxDecoration(
+            color: fondo,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: punto, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 5),
+              Text(estado,
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w800, color: texto)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Uno de los dos botones grandes "Confirmar Gestación" / "Marcar
+/// Fallida" -- al estar `seleccionado` mantiene su color e icono a toda
+/// fuerza (con sombra); al estar `atenuado` (el otro quedó elegido) pasa a
+/// gris apagado y sin sombra, igual que el mockup.
+class _BotonResultado extends StatelessWidget {
+  final IconData icono;
+  final String etiqueta;
+  final Color colorFondo;
+  final Color colorTexto;
+  final bool seleccionado;
+  final bool atenuado;
+  final VoidCallback onTap;
+
+  const _BotonResultado({
+    required this.icono,
+    required this.etiqueta,
+    required this.colorFondo,
+    required this.colorTexto,
+    required this.seleccionado,
+    required this.atenuado,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fondo = atenuado ? AppTheme.surfaceContainerColor : colorFondo;
+    final texto = atenuado ? AppTheme.onSurfaceVariant : colorTexto;
+    return AnimatedScale(
+      scale: seleccionado ? 1.02 : 1.0,
+      duration: const Duration(milliseconds: 150),
+      child: Material(
+        color: fondo,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        elevation: seleccionado ? 4 : 0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+          onTap: onTap,
+          child: Container(
+            // 2026-10-22: subí la altura (112 -> 124) y achiqué un poco el
+            // círculo del ícono y el padding -- el texto en dos líneas
+            // ("Confirmar\nGestación" / "Marcar\nFallida") se salía por 2px
+            // ("BOTTOM OVERFLOWED") con las medidas anteriores.
+            height: 124,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: atenuado ? 0.0 : 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icono, size: 24, color: texto),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  etiqueta,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14,
+                      height: 1.15,
+                      fontWeight: FontWeight.w700,
+                      color: texto),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
