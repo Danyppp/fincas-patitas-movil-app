@@ -23,6 +23,9 @@ import 'repositories/produccion/produccion_repository.dart';
 import 'repositories/reproduccion/api_reproduccion_repository.dart';
 import 'repositories/reproduccion/mock_reproduccion_repository.dart';
 import 'repositories/reproduccion/reproduccion_repository.dart';
+import 'repositories/salud/api_evento_sanitario_repository.dart';
+import 'repositories/salud/evento_sanitario_repository.dart';
+import 'repositories/salud/mock_evento_sanitario_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_shell.dart';
 
@@ -76,6 +79,11 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
       ? ApiInsumoRepository(client: _apiClient)
       : MockInsumoRepository();
 
+  late final EventoSanitarioRepository _eventoSanitarioRepository =
+      AppConfig.useRealApi
+          ? ApiEventoSanitarioRepository(client: _apiClient)
+          : MockEventoSanitarioRepository();
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +116,7 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
                   reproduccionRepository: _reproduccionRepository,
                   produccionRepository: _produccionRepository,
                   insumoRepository: _insumoRepository,
+                  eventoSanitarioRepository: _eventoSanitarioRepository,
                   session: widget.session,
                 )
               : LoginScreen(
