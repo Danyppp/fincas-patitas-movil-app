@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/auth_session.dart';
 import '../../models/animal.dart';
 import '../../models/catalogo/especie.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/inventario/insumo_repository.dart';
+import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/especie_visual.dart';
 import '../../widgets/animal_card.dart';
@@ -15,11 +18,17 @@ import 'animal_form_screen.dart';
 class AnimalesListScreen extends StatefulWidget {
   final AnimalRepository repository;
   final CatalogoRepository catalogoRepository;
+  final EventoSanitarioRepository eventoSanitarioRepository;
+  final InsumoRepository insumoRepository;
+  final AuthSession session;
 
   const AnimalesListScreen({
     super.key,
     required this.repository,
     required this.catalogoRepository,
+    required this.eventoSanitarioRepository,
+    required this.insumoRepository,
+    required this.session,
   });
 
   @override
@@ -303,6 +312,10 @@ class _AnimalesListScreenState extends State<AnimalesListScreen> {
                                     repository: widget.repository,
                                     catalogoRepository:
                                         widget.catalogoRepository,
+                                    eventoSanitarioRepository:
+                                        widget.eventoSanitarioRepository,
+                                    insumoRepository: widget.insumoRepository,
+                                    session: widget.session,
                                   ),
                                 ),
                               );

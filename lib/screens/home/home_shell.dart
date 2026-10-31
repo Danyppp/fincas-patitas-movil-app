@@ -6,6 +6,7 @@ import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
+import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../animales/animales_list_screen.dart';
 import '../inventario/inventario_list_screen.dart';
 import '../produccion/produccion_dashboard_screen.dart';
@@ -27,6 +28,7 @@ class HomeShell extends StatefulWidget {
   final ReproduccionRepository reproduccionRepository;
   final ProduccionRepository produccionRepository;
   final InsumoRepository insumoRepository;
+  final EventoSanitarioRepository eventoSanitarioRepository;
   final AuthSession session;
 
   const HomeShell({
@@ -36,6 +38,7 @@ class HomeShell extends StatefulWidget {
     required this.reproduccionRepository,
     required this.produccionRepository,
     required this.insumoRepository,
+    required this.eventoSanitarioRepository,
     required this.session,
   });
 
@@ -52,6 +55,9 @@ class _HomeShellState extends State<HomeShell> {
       AnimalesListScreen(
         repository: widget.animalRepository,
         catalogoRepository: widget.catalogoRepository,
+        eventoSanitarioRepository: widget.eventoSanitarioRepository,
+        insumoRepository: widget.insumoRepository,
+        session: widget.session,
       ),
       ReproduccionListScreen(
         repository: widget.reproduccionRepository,
@@ -70,11 +76,28 @@ class _HomeShellState extends State<HomeShell> {
         catalogoRepository: widget.catalogoRepository,
         session: widget.session,
       ),
-      CuentaScreen(session: widget.session),
+      CuentaScreen(
+        session: widget.session,
+        eventoSanitarioRepository: widget.eventoSanitarioRepository,
+        catalogoRepository: widget.catalogoRepository,
+        insumoRepository: widget.insumoRepository,
+      ),
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: paginas),
+      // 2026-10-28, a pedido de Dany: antes esto era un IndexedStack, que
+      // mantenía las 5 pantallas vivas en memoria todo el tiempo -- así
+      // que ninguna se refrescaba sola solo por cambiar de pestaña (se vio
+      // el problema con Inventario no reflejando el descuento de stock
+      // hecho desde Salud hasta tocar el botón de refrescar a mano).
+      // Mostrando solo `paginas[_index]` en vez del stack, Flutter
+      // reconstruye la pantalla de la pestaña cada vez que se entra a
+      // ella -- eso dispara su `initState()`/`_cargar()` y trae datos
+      // frescos del backend en cada visita, igual en las 5 pestañas. El
+      // costo es que el scroll/filtros de una pestaña no se preservan al
+      // salir y volver a entrar -- se consideró aceptable a cambio de
+      // datos siempre actualizados.
+      body: paginas[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),

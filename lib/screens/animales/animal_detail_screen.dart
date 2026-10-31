@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/auth_session.dart';
 import '../../models/animal.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/inventario/insumo_repository.dart';
+import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/especie_visual.dart';
+import '../salud/salud_animal_screen.dart';
 import 'animal_form_screen.dart';
 
 class AnimalDetailScreen extends StatefulWidget {
   final int animalId;
   final AnimalRepository repository;
   final CatalogoRepository catalogoRepository;
+  final EventoSanitarioRepository eventoSanitarioRepository;
+  final InsumoRepository insumoRepository;
+  final AuthSession session;
 
   const AnimalDetailScreen({
     super.key,
     required this.animalId,
     required this.repository,
     required this.catalogoRepository,
+    required this.eventoSanitarioRepository,
+    required this.insumoRepository,
+    required this.session,
   });
 
   @override
@@ -188,6 +198,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                     padre: _padre,
                     potrero: _potrero,
                     ultimoEventoSanitario: _ultimoEventoSanitario,
+                    eventoSanitarioRepository: widget.eventoSanitarioRepository,
+                    insumoRepository: widget.insumoRepository,
+                    session: widget.session,
                   ),
       ),
     );
@@ -200,6 +213,9 @@ class _DetalleAnimal extends StatelessWidget {
   final Animal? padre;
   final Potrero? potrero;
   final Map<String, dynamic>? ultimoEventoSanitario;
+  final EventoSanitarioRepository eventoSanitarioRepository;
+  final InsumoRepository insumoRepository;
+  final AuthSession session;
 
   const _DetalleAnimal({
     required this.animal,
@@ -207,6 +223,9 @@ class _DetalleAnimal extends StatelessWidget {
     this.padre,
     this.potrero,
     this.ultimoEventoSanitario,
+    required this.eventoSanitarioRepository,
+    required this.insumoRepository,
+    required this.session,
   });
 
   int? _edadAnios() {
@@ -412,43 +431,45 @@ class _DetalleAnimal extends StatelessWidget {
           ),
         ],
 
-        // -- Estado de salud: solo datos reales del backend (sin
-        // veterinario ni "próximo refuerzo", eso no existe en el modelo
-        // de eventos_sanitarios). --
+        // -- Salud: punto de entrada al apartado completo (cabeza/cuerpo/
+        // pie + registro), tal como lo definió Dany -- ya no se muestra
+        // el detalle acá, solo un resumen y un botón para entrar. --
         const SizedBox(height: 16),
-        _tarjeta(
-          context,
-          icono: Icons.health_and_safety_outlined,
-          titulo: 'Estado de salud',
-          children: [
-            if (ultimoEventoSanitario == null)
-              Text('Sin eventos sanitarios registrados',
-                  style: textTheme.bodyMedium)
-            else ...[
-              _filaFicha(context, Icons.event_note_outlined, 'Último evento',
-                  ultimoEventoSanitario!['tipo_evento'] as String? ?? '-'),
-              if (ultimoEventoSanitario!['fecha_evento'] != null)
-                _filaFicha(
-                  context,
-                  Icons.calendar_today_outlined,
-                  'Fecha',
-                  formato.format(DateTime.parse(
-                      ultimoEventoSanitario!['fecha_evento'] as String)),
+        InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SaludAnimalScreen(
+                  animal: animal,
+                  repository: eventoSanitarioRepository,
+                  insumoRepository: insumoRepository,
+                  session: session,
                 ),
-              if ((ultimoEventoSanitario!['descripcion_tratamiento'] as String?)
-                      ?.isNotEmpty ==
-                  true)
-                _filaFicha(
-                    context,
-                    Icons.description_outlined,
-                    'Descripción',
-                    ultimoEventoSanitario!['descripcion_tratamiento']
-                        as String),
-              if (ultimoEventoSanitario!['estado'] != null)
-                _filaFicha(context, Icons.flag_outlined, 'Estado del evento',
-                    ultimoEventoSanitario!['estado'] as String),
+              ),
+            );
+          },
+          child: _tarjeta(
+            context,
+            icono: Icons.health_and_safety_outlined,
+            titulo: 'Salud',
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      ultimoEventoSanitario == null
+                          ? 'Sin eventos sanitarios registrados'
+                          : 'Último evento: ${ultimoEventoSanitario!['tipo_evento'] ?? '-'}'
+                              '${ultimoEventoSanitario!['fecha_evento'] != null ? ' · ${formato.format(DateTime.parse(ultimoEventoSanitario!['fecha_evento'] as String))}' : ''}',
+                      style: textTheme.bodyMedium,
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppTheme.outline),
+                ],
+              ),
             ],
-          ],
+          ),
         ),
       ],
     );
