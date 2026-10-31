@@ -13,6 +13,19 @@ import 'evento_sanitario_detalle_screen.dart';
 
 const int _kPorPagina = 10;
 
+/// Paleta exacta del mockup `eventos_de_salud_registrados` para el avatar
+/// y el pill de estado de cada fila -- mismo criterio de dos tonos
+/// (verde = Resuelto, coral = Abierto/En tratamiento) que ya se usa en
+/// `salud_animal_screen.dart`, pero con los hex propios de este mockup en
+/// particular (son ligeramente distintos entre mockups de Stitch, igual
+/// que ya pasaba con los "colores piel" duplicados en Producción).
+const _avatarMint = Color(0xFFE5F5EC);
+const _avatarCoral = Color(0xFFFCE8E8);
+const _badgeGreenBg = Color(0xFFD9F3DF);
+const _badgeGreenText = Color(0xFF2F7F44);
+const _badgePinkBg = Color(0xFFFDE5E6);
+const _badgePinkText = Color(0xFFB84050);
+
 /// "Eventos de salud registrados" -- pestaña dentro de Cuenta (ver
 /// decisiones-diseno-vs-backend-salud.md sección 3). Único lugar de la app
 /// donde el detalle de un evento permite Editar/Eliminar/cambiar estado.
@@ -21,6 +34,12 @@ const int _kPorPagina = 10;
 /// -- todo (filtro de especie, búsqueda por nombre de animal, paginado de
 /// 10 en 10) se resuelve 100% del lado del cliente, sobre la lista
 /// completa ya traída.
+///
+/// 2026-11-01 (Etapa 2: Estilos): ajustado contra el mockup
+/// `eventos_de_salud_registrados` -- buscador sin borde visible (solo
+/// sombra suave), avatares con el emoji de la especie del animal (no un
+/// icono médico genérico) y pills de estado con los tonos exactos del
+/// mockup.
 class HistorialSaludScreen extends StatefulWidget {
   final EventoSanitarioRepository repository;
   final CatalogoRepository catalogoRepository;
@@ -239,11 +258,7 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
     return '📅 ${f.format(_rangoFechas!.start)} - ${f.format(_rangoFechas!.end)}';
   }
 
-  Color _colorEstado(EventoSanitario e) {
-    if (e.estaResuelto) return AppTheme.primary;
-    if (e.estaEnTratamiento) return AppTheme.tertiary;
-    return AppTheme.secondary;
-  }
+  bool _esResuelto(EventoSanitario e) => e.estaResuelto;
 
   Future<void> _abrirDetalle(EventoSanitario evento) async {
     final animal = evento.animal;
@@ -313,30 +328,56 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(106),
+          preferredSize: const Size.fromHeight(108),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
               children: [
-                TextField(
-                  controller: _buscarCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Buscar por nombre o código del animal...',
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusDefault),
-                      borderSide: BorderSide(color: AppTheme.outlineVariant),
-                    ),
+                // Buscador -- sin borde visible, solo una sombra suave
+                // (igual al mockup, que no le pone ningún trazo gris).
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.onSurface.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
-                  onChanged: (_) => setState(() => _pagina = 0),
+                  child: TextField(
+                    controller: _buscarCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nombre o código del animal...',
+                      hintStyle:
+                          TextStyle(color: AppTheme.outline, fontSize: 13.5),
+                      prefixIcon:
+                          Icon(Icons.search, color: AppTheme.outline, size: 20),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                        borderSide:
+                            const BorderSide(color: AppTheme.primary, width: 2),
+                      ),
+                    ),
+                    onChanged: (_) => setState(() => _pagina = 0),
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 SizedBox(
                   height: 36,
                   child: ListView(
@@ -435,11 +476,12 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                         children: [
                           Expanded(
                             child: ListView.builder(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                               itemCount: paginaActual.length,
                               itemBuilder: (context, i) {
                                 final evento = paginaActual[i];
                                 final animal = evento.animal;
+                                final resuelto = _esResuelto(evento);
                                 // 2026-11-01: fila tachada + leyenda
                                 // "Eliminado el ... por ..." cuando el
                                 // evento tiene borrado lógico (solo puede
@@ -447,43 +489,46 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                                 // activo) -- mismo lenguaje visual que
                                 // Producción.
                                 final eliminado = evento.estaEliminado;
+                                final fondoAvatar =
+                                    resuelto ? _avatarMint : _avatarCoral;
+                                final fondoBadge =
+                                    resuelto ? _badgeGreenBg : _badgePinkBg;
+                                final colorBadge =
+                                    resuelto ? _badgeGreenText : _badgePinkText;
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.only(bottom: 10),
                                   child: Opacity(
                                     opacity: eliminado ? 0.6 : 1,
                                     child: Material(
                                       color: AppTheme.surfaceContainerLowest,
                                       borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusDefault),
+                                          AppTheme.radiusMd),
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(
-                                            AppTheme.radiusDefault),
+                                            AppTheme.radiusMd),
                                         onTap: () => _abrirDetalle(evento),
                                         child: Container(
-                                          padding: const EdgeInsets.all(12),
+                                          padding: const EdgeInsets.all(14),
                                           decoration: BoxDecoration(
                                             borderRadius: BorderRadius.circular(
-                                                AppTheme.radiusDefault),
+                                                AppTheme.radiusMd),
                                             border: Border.all(
                                                 color: AppTheme.outlineVariant
-                                                    .withValues(alpha: 0.4)),
+                                                    .withValues(alpha: 0.35)),
                                           ),
                                           child: Row(
                                             children: [
                                               CircleAvatar(
-                                                radius: 20,
-                                                backgroundColor:
-                                                    _colorEstado(evento)
-                                                        .withValues(
-                                                            alpha: 0.15),
+                                                radius: 22,
+                                                backgroundColor: fondoAvatar,
                                                 child: Text(
                                                   _emojiEspecieDe(
                                                       animal?.especieId),
                                                   style: const TextStyle(
-                                                      fontSize: 18),
+                                                      fontSize: 19),
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
+                                              const SizedBox(width: 13),
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -494,12 +539,14 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                                                       style: TextStyle(
                                                         fontWeight:
                                                             FontWeight.w700,
+                                                        fontSize: 14.5,
                                                         decoration: eliminado
                                                             ? TextDecoration
                                                                 .lineThrough
                                                             : null,
                                                       ),
                                                     ),
+                                                    const SizedBox(height: 2),
                                                     Text(
                                                       evento.fechaEvento != null
                                                           ? _dateFormat.format(
@@ -507,7 +554,9 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                                                                   .fechaEvento!)
                                                           : 'Sin fecha',
                                                       style: TextStyle(
-                                                          fontSize: 12,
+                                                          fontSize: 12.5,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                           color:
                                                               AppTheme.outline),
                                                     ),
@@ -532,11 +581,10 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                                               Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4),
+                                                        horizontal: 12,
+                                                        vertical: 5),
                                                 decoration: BoxDecoration(
-                                                  color: _colorEstado(evento)
-                                                      .withValues(alpha: 0.12),
+                                                  color: fondoBadge,
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           AppTheme.radiusFull),
@@ -544,11 +592,10 @@ class _HistorialSaludScreenState extends State<HistorialSaludScreen> {
                                                 child: Text(
                                                   evento.estado,
                                                   style: TextStyle(
-                                                      fontSize: 11,
+                                                      fontSize: 11.5,
                                                       fontWeight:
                                                           FontWeight.w700,
-                                                      color:
-                                                          _colorEstado(evento)),
+                                                      color: colorBadge),
                                                 ),
                                               ),
                                             ],

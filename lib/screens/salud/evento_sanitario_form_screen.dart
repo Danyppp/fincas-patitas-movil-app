@@ -73,6 +73,16 @@ const List<String> _viasAdministracion = [
 /// Al EDITAR no se vuelve a descontar inventario (para no duplicar el
 /// descuento ya hecho al crear) -- si hace falta corregir stock por una
 /// edición, se hace manualmente desde Inventario por ahora.
+///
+/// 2026-11-01 (Etapa 2: Estilos): ajustes de detalle contra los mockups
+/// `registro_de_evento_sanitario_fincas_y_patitas` y
+/// `editar_evento_de_salud_fincas_y_patitas` -- secciones con esquinas más
+/// redondeadas (rounded-3xl del mockup), chips de "Vía de administración"
+/// y "¿Próximo refuerzo?" un poco más compactos que los de "Tipo de
+/// evento" (igual que en el mockup), y los campos bloqueados (fecha,
+/// unidad, estado, profesional) usan el mismo tono que los campos
+/// editables -- en el mockup NO hay diferencia visual entre un campo fijo
+/// y uno que se puede tocar, todos comparten el mismo fondo durazno.
 class EventoSanitarioFormScreen extends StatefulWidget {
   final Animal animal;
   final EventoSanitarioRepository repository;
@@ -373,6 +383,8 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
     }
   }
 
+  /// Sección blanca redondeada (rounded-3xl del mockup) con icono + título
+  /// a la izquierda.
   Widget _seccion(
     BuildContext context, {
     required IconData icono,
@@ -381,45 +393,65 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
     required List<Widget> children,
   }) {
     final textTheme = Theme.of(context).textTheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(icono, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(titulo, style: textTheme.headlineSmall),
-              ],
-            ),
-            if (subtitulo != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 28, top: 2),
-                child: Text(subtitulo, style: textTheme.bodySmall),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.onSurface.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icono, color: AppTheme.primary, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(titulo,
+                    style: textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
               ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
+            ],
+          ),
+          if (subtitulo != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 30, top: 2),
+              child: Text(subtitulo, style: textTheme.bodySmall),
+            ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
       ),
     );
   }
 
-  /// Tarjeta seleccionable genérica -- usada para Tipo de evento y Vía de
-  /// administración, mismo patrón visual que las tarjetas de especie en
-  /// el formulario de Animales.
+  /// Tarjeta seleccionable genérica -- usada para Tipo de evento, Vía de
+  /// administración y ¿Próximo refuerzo?, mismo patrón visual que las
+  /// tarjetas de especie en el formulario de Animales. `compacta` reduce
+  /// el tamaño de fuente/relleno para que los chips de "Vía de
+  /// administración" y "Sí/No" queden más pequeños que los de "Tipo de
+  /// evento", igual que en el mockup.
   Widget _tarjetaOpcion({
     required String texto,
     required bool seleccionada,
     required VoidCallback onTap,
+    bool compacta = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        padding: EdgeInsets.symmetric(
+          vertical: compacta ? 8 : 10,
+          horizontal: compacta ? 12 : 14,
+        ),
         decoration: BoxDecoration(
           color: seleccionada ? AppTheme.primaryContainer : Colors.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
@@ -434,7 +466,7 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
           texto,
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 13,
+            fontSize: compacta ? 12 : 13,
             color: seleccionada ? Colors.white : AppTheme.onSurface,
           ),
         ),
@@ -442,12 +474,16 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
     );
   }
 
+  /// Campo de solo lectura -- en el mockup NO hay diferencia visual entre
+  /// un campo fijo (fecha, estado, profesional) y uno editable: todos
+  /// comparten el mismo fondo durazno, así que este usa el mismo
+  /// `fillColor` que el resto de los `TextFormField` del formulario.
   Widget _campoBloqueado({required String etiqueta, required String valor}) {
     return InputDecorator(
       decoration: InputDecoration(
         labelText: etiqueta,
         filled: true,
-        fillColor: AppTheme.surfaceContainerHigh,
+        fillColor: AppTheme.surfaceContainerLow,
       ),
       child: Text(valor),
     );
@@ -471,12 +507,38 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // -- 1. Animal (fijo, informativo) --
-              _seccion(
-                context,
-                icono: Icons.pets,
-                titulo: widget.animal.nombreVisible,
-                subtitulo: '#${widget.animal.codigo}',
-                children: const [],
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.onSurface.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.pets, color: AppTheme.primary, size: 28),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.animal.nombreVisible,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('#${widget.animal.codigo}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.outline)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -487,8 +549,8 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
                 titulo: 'Tipo de evento sanitario',
                 children: [
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: tiposEventoSanitarioValidos
                         .map((t) => _tarjetaOpcion(
                               texto: t,
@@ -555,47 +617,50 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
                   // Punto 5.5.2: Dosis queda bloqueada hasta confirmar un
                   // medicamento (incluso re-seleccionando el mismo en
                   // edición -- ver _medicamentoConfirmado).
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _dosisCtrl,
-                          enabled: _medicamentoConfirmado,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.,]')),
-                          ],
-                          decoration: InputDecoration(
-                            labelText: 'Dosis aplicada *',
-                            helperText: _medicamentoConfirmado
-                                ? null
-                                : 'Elige el medicamento primero',
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _dosisCtrl,
+                            enabled: _medicamentoConfirmado,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.,]')),
+                            ],
+                            decoration: InputDecoration(
+                              labelText: 'Dosis aplicada *',
+                              helperText: _medicamentoConfirmado
+                                  ? null
+                                  : 'Elige el medicamento primero',
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Obligatorio';
+                              }
+                              final normalizado = v.trim().replaceAll(',', '.');
+                              final valido = RegExp(r'^\d+(\.\d{1,2})?$')
+                                  .hasMatch(normalizado);
+                              if (!valido) {
+                                return 'Solo números, máx. 2 decimales';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'Obligatorio';
-                            }
-                            final normalizado = v.trim().replaceAll(',', '.');
-                            final valido = RegExp(r'^\d+(\.\d{1,2})?$')
-                                .hasMatch(normalizado);
-                            if (!valido) {
-                              return 'Solo números, máx. 2 decimales';
-                            }
-                            return null;
-                          },
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _campoBloqueado(
-                          etiqueta: 'Unidad',
-                          valor: _unidadDosis ?? 'Elige un medicamento primero',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _campoBloqueado(
+                            etiqueta: 'Unidad',
+                            valor:
+                                _unidadDosis ?? 'Elige un medicamento primero',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   // -- 5.3 Via de administracion --
@@ -609,6 +674,7 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
                         .map((v) => _tarjetaOpcion(
                               texto: v,
                               seleccionada: _viaAdministracion == v,
+                              compacta: true,
                               onTap: () =>
                                   setState(() => _viaAdministracion = v),
                             ))
@@ -624,6 +690,7 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
                     children: [
                       _tarjetaOpcion(
                         texto: 'Sí',
+                        compacta: true,
                         // Ninguna de las dos aparece seleccionada hasta que
                         // el usuario toque una -- evita que "No" parezca
                         // ya elegido de entrada (ver _refuerzoEstablecido).
@@ -645,6 +712,7 @@ class _EventoSanitarioFormScreenState extends State<EventoSanitarioFormScreen> {
                       const SizedBox(width: 8),
                       _tarjetaOpcion(
                         texto: 'No',
+                        compacta: true,
                         seleccionada:
                             _refuerzoEstablecido && !_tieneProximoRefuerzo,
                         onTap: () => setState(() {

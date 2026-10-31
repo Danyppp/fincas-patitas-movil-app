@@ -41,6 +41,15 @@ import 'evento_sanitario_form_screen.dart';
 /// muestra un aviso "Eliminado el ... por ..." y se ocultan Editar/
 /// Eliminar -- un evento eliminado queda congelado, igual que el backend
 /// ya lo rechaza (código EVENTO_ELIMINADO).
+///
+/// 2026-11-01 (Etapa 2: Estilos): ajustado 1:1 contra los mockups
+/// `detalle_del_evento_de_salud_fincas_y_patitas` (solo lectura) y
+/// `detalle_del_evento_con_edicion_y_eliminacion_fincas_y_patitas`
+/// (editable) -- tarjeta de resumen con icono en placa blanca y pill de
+/// estado sólido (fondo del color de estado, texto blanco, no el alpha
+/// tenue que se usaba antes), y los puntos del "Flujo de registro" con los
+/// mismos tonos exactos del mockup (café para Creado, rojo para Editado,
+/// verde para Resuelto).
 class EventoSanitarioDetalleScreen extends StatefulWidget {
   final EventoSanitario evento;
   final Animal animal;
@@ -63,6 +72,11 @@ class EventoSanitarioDetalleScreen extends StatefulWidget {
   State<EventoSanitarioDetalleScreen> createState() =>
       _EventoSanitarioDetalleScreenState();
 }
+
+/// Tonos exactos del "Flujo de registro" en ambos mockups de detalle.
+const _dotCreado = Color(0xFF8C6239);
+const _dotEditado = Color(0xFFD32F2F);
+const _dotResuelto = Color(0xFF2E7D32);
 
 class _EventoSanitarioDetalleScreenState
     extends State<EventoSanitarioDetalleScreen> {
@@ -170,22 +184,26 @@ class _EventoSanitarioDetalleScreenState
 
   Widget _fila(IconData icono, String etiqueta, String valor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icono, size: 18, color: AppTheme.outline),
-          const SizedBox(width: 12),
+          Icon(icono, size: 16, color: AppTheme.outline),
+          const SizedBox(width: 10),
           SizedBox(
-            width: 150,
-            child: Text(etiqueta, style: Theme.of(context).textTheme.bodySmall),
+            width: 148,
+            child: Text(etiqueta,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppTheme.outline)),
           ),
           Expanded(
             child: Text(valor,
                 style: Theme.of(context)
                     .textTheme
                     .bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+                    ?.copyWith(fontWeight: FontWeight.w700, fontSize: 14)),
           ),
         ],
       ),
@@ -195,13 +213,13 @@ class _EventoSanitarioDetalleScreenState
   Color _colorAccion(String accion) {
     switch (accion) {
       case 'Creado':
-        return AppTheme.secondary;
+        return _dotCreado;
       case 'Resuelto':
-        return AppTheme.primary;
+        return _dotResuelto;
       case 'Eliminado':
         return Theme.of(context).colorScheme.error;
-      default:
-        return AppTheme.tertiary;
+      default: // Editado
+        return _dotEditado;
     }
   }
 
@@ -210,63 +228,76 @@ class _EventoSanitarioDetalleScreenState
   /// ordenado del backend (ascendente por fecha).
   Widget _flujoRegistro(BuildContext context) {
     if (_evento.historial.isEmpty) return const SizedBox.shrink();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.history, size: 18, color: AppTheme.outline),
-                const SizedBox(width: 8),
-                Text('Flujo de registro',
-                    style: Theme.of(context).textTheme.labelLarge),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ..._evento.historial.map((h) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 5),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _colorAccion(h.accion),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.onSurface.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.history, size: 18, color: AppTheme.outline),
+              const SizedBox(width: 8),
+              Text('Flujo de registro',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ..._evento.historial.map((h) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 5),
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _colorAccion(h.accion),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                  color: AppTheme.onSurface, fontSize: 13),
+                          children: [
+                            TextSpan(
+                              text: h.accion,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            TextSpan(
+                                text:
+                                    ' el ${_dateTimeFormat.format(h.fecha.toLocal())}'),
+                            if (h.usuarioNombre != null)
+                              TextSpan(text: ' por: ${h.usuarioNombre}'),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: RichText(
-                          text: TextSpan(
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: AppTheme.onSurface),
-                            children: [
-                              TextSpan(
-                                text: h.accion,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              TextSpan(
-                                  text:
-                                      ' el ${_dateTimeFormat.format(h.fecha.toLocal())}'),
-                              if (h.usuarioNombre != null)
-                                TextSpan(text: ' por: ${h.usuarioNombre}'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
-        ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
   }
@@ -331,9 +362,11 @@ class _EventoSanitarioDetalleScreenState
               ? [
                   IconButton(
                       icon: const Icon(Icons.edit_outlined),
+                      tooltip: 'Editar evento',
                       onPressed: _editar),
                   IconButton(
                       icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Eliminar evento',
                       onPressed: _eliminar),
                 ]
               : null,
@@ -342,6 +375,9 @@ class _EventoSanitarioDetalleScreenState
           padding: const EdgeInsets.all(16),
           children: [
             _avisoEliminado(context),
+            // -- Tarjeta resumen: igual a ambos mockups de detalle, con
+            // pill de estado SÓLIDO (fondo de color, texto blanco), no el
+            // tinte alpha que se usaba antes.
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -352,8 +388,19 @@ class _EventoSanitarioDetalleScreenState
               ),
               child: Row(
                 children: [
-                  Icon(Icons.medical_services_outlined, color: _colorEstado),
-                  const SizedBox(width: 10),
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      border: Border.all(
+                          color: _colorEstado.withValues(alpha: 0.3)),
+                    ),
+                    child: Icon(Icons.medical_services_outlined,
+                        color: _colorEstado),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,14 +408,16 @@ class _EventoSanitarioDetalleScreenState
                         Text(e.tipoEvento,
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
                         Text(
-                            '${widget.animal.nombreVisible} · #${widget.animal.codigo}'),
+                            '${widget.animal.nombreVisible} · #${widget.animal.codigo}',
+                            style: Theme.of(context).textTheme.bodySmall),
                       ],
                     ),
                   ),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
                       color: _colorEstado,
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
@@ -383,51 +432,60 @@ class _EventoSanitarioDetalleScreenState
               ),
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // -- 4.1 Fecha del evento --
-                    _fila(
-                      Icons.calendar_today_outlined,
-                      'Fecha del evento',
-                      e.fechaEvento != null
-                          ? _dateFormat.format(e.fechaEvento!)
-                          : 'Sin definir',
-                    ),
-                    // -- 4.2 Medicamento aplicado --
-                    if (e.medicamento != null)
-                      _fila(Icons.medication_outlined, 'Medicamento aplicado',
-                          e.medicamento!),
-                    // -- 4.3 Vía de administración --
-                    if (e.viaAdministracion != null)
-                      _fila(Icons.vaccines_outlined, 'Vía de administración',
-                          e.viaAdministracion!),
-                    // -- 4.4 Dosis aplicada --
-                    if (e.dosisAplicada != null)
-                      _fila(Icons.science_outlined, 'Dosis aplicada',
-                          '${e.dosisAplicada}${e.unidadDosis != null ? ' ${e.unidadDosis}' : ''}'),
-                    // -- 4.5 ¿Refuerzo? --
-                    _fila(
-                        Icons.event_available, '¿Refuerzo?', _textoRefuerzo(e)),
-                    // -- 4.6 Descripción --
-                    if (e.descripcionTratamiento != null &&
-                        e.descripcionTratamiento!.isNotEmpty) ...[
-                      const Divider(height: 24),
-                      Text('Descripción',
-                          style: Theme.of(context).textTheme.labelMedium),
-                      const SizedBox(height: 4),
-                      Text(e.descripcionTratamiento!),
-                      const SizedBox(height: 8),
-                    ],
-                    // -- 4.7 Profesional / responsable --
-                    if (e.profesionalResponsable != null)
-                      _fila(Icons.badge_outlined, 'Profesional / responsable',
-                          e.profesionalResponsable!),
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.onSurface.withValues(alpha: 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // -- 4.1 Fecha del evento --
+                  _fila(
+                    Icons.calendar_today_outlined,
+                    'Fecha del evento',
+                    e.fechaEvento != null
+                        ? _dateFormat.format(e.fechaEvento!)
+                        : 'Sin definir',
+                  ),
+                  // -- 4.2 Medicamento aplicado --
+                  if (e.medicamento != null)
+                    _fila(Icons.medication_outlined, 'Medicamento aplicado',
+                        e.medicamento!),
+                  // -- 4.3 Vía de administración --
+                  if (e.viaAdministracion != null)
+                    _fila(Icons.vaccines_outlined, 'Vía de administración',
+                        e.viaAdministracion!),
+                  // -- 4.4 Dosis aplicada --
+                  if (e.dosisAplicada != null)
+                    _fila(Icons.science_outlined, 'Dosis aplicada',
+                        '${e.dosisAplicada}${e.unidadDosis != null ? ' ${e.unidadDosis}' : ''}'),
+                  // -- 4.5 ¿Refuerzo? --
+                  _fila(Icons.event_available, '¿Refuerzo?', _textoRefuerzo(e)),
+                  // -- 4.6 Descripción --
+                  if (e.descripcionTratamiento != null &&
+                      e.descripcionTratamiento!.isNotEmpty) ...[
+                    const Divider(height: 28),
+                    Text('Descripción',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 4),
+                    Text(e.descripcionTratamiento!,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    const SizedBox(height: 8),
                   ],
-                ),
+                  // -- 4.7 Profesional / responsable --
+                  if (e.profesionalResponsable != null)
+                    _fila(Icons.badge_outlined, 'Profesional / responsable',
+                        e.profesionalResponsable!),
+                ],
               ),
             ),
             // -- 4.9 Flujo de registro --

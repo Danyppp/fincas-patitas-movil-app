@@ -22,6 +22,14 @@ import 'evento_sanitario_form_screen.dart';
 ///
 /// El registro de un evento SIEMPRE pasa por aquí -- nunca desde una
 /// pantalla general independiente.
+///
+/// 2026-11-01 (Etapa 2: Estilos): paleta y tarjetas ajustadas 1:1 al
+/// mockup de Stitch `salud_seo_fincas_y_patitas` -- banner coral/verde de
+/// resumen, filas de evento con avatar circular + pill de estado en los
+/// mismos tonos exactos del mockup (que no coinciden del todo con el
+/// alpha genérico de AppTheme.tertiary/primary, por eso se definen acá
+/// como constantes locales, igual que ya se hizo en Producción con los
+/// colores "piel").
 class SaludAnimalScreen extends StatefulWidget {
   final Animal animal;
   final EventoSanitarioRepository repository;
@@ -39,6 +47,16 @@ class SaludAnimalScreen extends StatefulWidget {
   @override
   State<SaludAnimalScreen> createState() => _SaludAnimalScreenState();
 }
+
+/// Paleta exacta del mockup `salud_seo_fincas_y_patitas` (tokens
+/// `finca-coral*` / `finca-mint*` de su `tailwind.config`).
+const _coral = Color(0xFFFDECE7);
+const _coralBorder = Color(0xFFF9D5CB);
+const _coralText = Color(0xFFA84334);
+const _coralBadge = Color(0xFFFCE8E4);
+const _mint = Color(0xFFEBF6EE);
+const _mintBadge = Color(0xFFE2F3E7);
+const _mintText = Color(0xFF2E7D32);
 
 class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
   final _dateFormat = DateFormat('d \'de\' MMMM, yyyy', 'es');
@@ -153,7 +171,7 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
                               .textTheme
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       if (_eventosActivos.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -165,7 +183,7 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
                       else
                         for (final evento in _eventosActivos)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: _TarjetaEvento(
                               evento: evento,
                               dateFormat: _dateFormat,
@@ -180,7 +198,7 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
                               .textTheme
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       if (_historialCompleto.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -192,7 +210,7 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
                       else
                         for (final evento in _historialCompleto)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: _TarjetaEvento(
                               evento: evento,
                               dateFormat: _dateFormat,
@@ -205,6 +223,9 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _registrarEvento,
+        backgroundColor: AppTheme.primaryContainer,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         icon: const Icon(Icons.add),
         label: const Text('Registrar evento de salud'),
       ),
@@ -214,7 +235,9 @@ class _SaludAnimalScreenState extends State<SaludAnimalScreen> {
 
 /// 1. Cabeza: ficha de estado actual -- resume si hay algo pendiente de
 /// atención y el próximo refuerzo más cercano entre todos los eventos
-/// activos (si alguno lo tiene programado).
+/// activos (si alguno lo tiene programado). Mismo banner redondeado
+/// coral/verde del mockup, con el icono en una placa cuadrada (no
+/// circular) de 48px.
 class _EstadoActualCard extends StatelessWidget {
   final Animal animal;
   final List<EventoSanitario> eventosActivos;
@@ -240,76 +263,82 @@ class _EstadoActualCard extends StatelessWidget {
     final saludable = eventosActivos.isEmpty;
     final refuerzo = _proximoRefuerzo;
     final textTheme = Theme.of(context).textTheme;
+    final fondo = saludable ? _mint : _coral;
+    final borde = saludable ? _mintBadge : _coralBorder;
+    final acento = saludable ? _mintText : _coralText;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: saludable
-            ? AppTheme.primaryContainer.withValues(alpha: 0.18)
-            : AppTheme.tertiary.withValues(alpha: 0.12),
+        color: fondo,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: saludable
-              ? AppTheme.primaryContainer.withValues(alpha: 0.4)
-              : AppTheme.tertiary.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: borde),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: saludable
-                      ? AppTheme.primary.withValues(alpha: 0.15)
-                      : AppTheme.tertiary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 child: Icon(
                   saludable ? Icons.check_circle_outline : Icons.healing,
-                  color: saludable ? AppTheme.primary : AppTheme.tertiary,
+                  color: acento,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      saludable
-                          ? 'Sin eventos activos'
-                          : '${eventosActivos.length} evento(s) activo(s)',
-                      style: textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${emojiEspecie(animal.especie?.nombre)} ${animal.nombreVisible} · #${animal.codigo}',
-                      style: textTheme.bodySmall,
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        saludable
+                            ? 'Sin eventos activos'
+                            : '${eventosActivos.length} evento(s) activo(s)',
+                        style: textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(emojiEspecie(animal.especie?.nombre),
+                              style: const TextStyle(fontSize: 13)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${animal.nombreVisible} · #${animal.codigo}',
+                            style: textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           if (refuerzo != null) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
+            const SizedBox(height: 14),
+            Container(height: 1, color: borde.withValues(alpha: 0.7)),
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.event_available,
-                    size: 18, color: AppTheme.secondary),
+                Icon(Icons.event_available, size: 16, color: acento),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Próximo refuerzo: ${dateFormat.format(refuerzo.fechaProximoRefuerzo!)}'
                     '${refuerzo.diasParaProximoRefuerzo != null ? ' (${_textoDias(refuerzo.diasParaProximoRefuerzo!)})' : ''}',
                     style: textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                        ?.copyWith(fontWeight: FontWeight.w700, color: acento),
                   ),
                 ),
               ],
@@ -329,7 +358,9 @@ class _EstadoActualCard extends StatelessWidget {
 }
 
 /// Tarjeta compacta de un evento, usada tanto en "Eventos activos" como en
-/// "Historial de salud".
+/// "Historial de salud" -- avatar circular (verde menta si está
+/// Resuelto/sin alerta, coral si está Abierto/En tratamiento) + pill de
+/// estado en el mismo tono, igual que las filas del mockup.
 class _TarjetaEvento extends StatelessWidget {
   final EventoSanitario evento;
   final DateFormat dateFormat;
@@ -343,48 +374,51 @@ class _TarjetaEvento extends StatelessWidget {
     this.atenuada = false,
   });
 
-  Color get _colorEstado {
-    if (evento.estaResuelto) return AppTheme.primary;
-    if (evento.estaEnTratamiento) return AppTheme.tertiary;
-    return AppTheme.secondary; // Abierto
-  }
+  bool get _esCoral => !evento.estaResuelto;
 
   @override
   Widget build(BuildContext context) {
+    final fondoAvatar = _esCoral ? _coral : _mint;
+    final colorIcono = _esCoral ? _coralText : _mintText;
+    final fondoPill = _esCoral ? _coralBadge : _mintBadge;
+    final colorPill = _esCoral ? _coralText : _mintText;
+
     return Opacity(
-      opacity: atenuada ? 0.75 : 1,
+      opacity: atenuada ? 0.85 : 1,
       child: Material(
         color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               border: Border.all(
-                  color: AppTheme.outlineVariant.withValues(alpha: 0.4)),
+                  color: AppTheme.outlineVariant.withValues(alpha: 0.5)),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: _colorEstado.withValues(alpha: 0.15),
+                    color: fondoAvatar,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.medical_services_outlined,
-                      color: _colorEstado, size: 18),
+                      color: colorIcono, size: 20),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(evento.tipoEvento,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 14)),
+                      const SizedBox(height: 2),
                       if (evento.fechaEvento != null)
                         Text(dateFormat.format(evento.fechaEvento!),
                             style: TextStyle(
@@ -394,17 +428,17 @@ class _TarjetaEvento extends StatelessWidget {
                 ),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: _colorEstado.withValues(alpha: 0.12),
+                    color: fondoPill,
                     borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                   ),
                   child: Text(
                     evento.estado,
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: _colorEstado),
+                        color: colorPill),
                   ),
                 ),
               ],
