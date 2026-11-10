@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 import 'api_exception.dart';
@@ -66,6 +67,21 @@ class ApiClient {
     return _send('DELETE', path, auth: auth);
   }
 
+  // Nuevo (2026-11-05): lo necesita Ubicación para subir la foto de
+  // Potrero (`POST /ubicaciones-potreros/:id/foto`, multipart/form-data)
+  // -- el resto de módulos solo manda JSON, por eso es un método aparte en
+  // vez de otra rama dentro de `_send`.
+  Future<dynamic> postMultipart(
+    String path, {
+    required List<int> bytes,
+    required String campo,
+    required String nombreArchivo,
+    bool auth = true,
+  }) {
+    return _sendMultipart(path,
+        bytes: bytes, campo: campo, nombreArchivo: nombreArchivo, auth: auth);
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -117,6 +133,81 @@ class ApiClient {
       default:
         throw ArgumentError('Método HTTP no soportado: $method');
     }
+  }
+
+  // 2026-11-10: `MultipartFile.fromBytes` sin `contentType` explícito
+  // queda como `application/octet-stream` por defecto -- el backend
+  // (`upload.middleware.ts`, `filtroSoloImagenes`) exige que el
+  // `mimetype` empiece con `image/` y lo rechaza con 500 "Error interno
+  // del servidor" si no. Por eso ahora se infiere el tipo a partir de la
+  // extensión del archivo (confirmado: este era el bug detrás de "Error
+  // interno del servidor" al subir la foto de un Potrero).
+  MediaType _tipoImagen(String nombreArchivo) {
+    final ext = nombreArchivo.toLowerCase().split('.').last;
+    switch (ext) {
+      case 'png':
+        return MediaType('image', 'png');
+      case 'gif':
+        return MediaType('image', 'gif');
+      case 'webp':
+        return MediaType('image', 'webp');
+      case 'bmp':
+        return MediaType('image', 'bmp');
+      case 'heic':
+        return MediaType('image', 'heic');
+      case 'jpg':
+      case 'jpeg':
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
+
+  Future<dynamic> _sendMultipart(
+    String path, {
+    required List<int> bytes,
+    required String campo,
+    required String nombreArchivo,
+    bool auth = true,
+    bool esReintento = false,
+  }) async {
+    final uri = _uri(path);
+    http.Response respuesta;
+    try {
+      final request = http.MultipartRequest('POST', uri);
+      if (auth && session.accessToken != null) {
+        request.headers['Authorization'] = 'Bearer ${session.accessToken}';
+      }
+      request.files.add(http.MultipartFile.fromBytes(
+        campo,
+        bytes,
+        filename: nombreArchivo,
+        contentType: _tipoImagen(nombreArchivo),
+      ));
+      final streamed =
+          await _http.send(request).timeout(AppConfig.requestTimeout);
+      respuesta = await http.Response.fromStream(streamed);
+    } catch (e) {
+      throw NetworkException('No se pudo conectar con el backend ($uri). '
+          '¿Está corriendo `npm run dev` en tu PC? Detalle: $e');
+    }
+
+    if (respuesta.statusCode == 401 &&
+        auth &&
+        !esReintento &&
+        session.refreshToken != null) {
+      final renovado = await _intentarRefrescarToken();
+      if (renovado) {
+        return _sendMultipart(path,
+            bytes: bytes,
+            campo: campo,
+            nombreArchivo: nombreArchivo,
+            auth: auth,
+            esReintento: true);
+      }
+      await session.cerrarSesion();
+    }
+
+    return _procesarRespuesta(respuesta);
   }
 
   Future<bool> _intentarRefrescarToken() async {

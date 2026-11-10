@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth_session.dart';
+import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/salud/evento_sanitario_repository.dart';
+import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../repositories/usuarios/usuario_repository.dart';
 import '../../theme/app_theme.dart';
 import '../salud/historial_salud_screen.dart';
+import '../ubicacion/ubicacion_inicio_screen.dart';
 
 /// Pantalla "Cuenta" -- antes solo tenía la tarjeta de "Eventos de salud
 /// registrados" con el estilo plano por defecto de Flutter. El resto de
@@ -16,6 +20,10 @@ import '../salud/historial_salud_screen.dart';
 /// pendientes) para que la pantalla de Cuenta se vea completa, tal como
 /// pidió Dany (Etapa 2: Estilos, 2026-11-01).
 ///
+/// 2026-11-05: "Datos de la finca" ya deja de ser un aviso de "próximamente"
+/// -- abre el módulo Ubicación de verdad (ver
+/// decisiones-diseno-vs-backend-ubicacion.md).
+///
 /// La navegación inferior (Animales/Reproducción/Producción/Inventario/
 /// Cuenta) del mockup no se toca acá -- ya vive en `home_shell.dart`.
 class CuentaScreen extends StatelessWidget {
@@ -23,6 +31,9 @@ class CuentaScreen extends StatelessWidget {
   final EventoSanitarioRepository eventoSanitarioRepository;
   final CatalogoRepository catalogoRepository;
   final InsumoRepository insumoRepository;
+  final UbicacionRepository ubicacionRepository;
+  final AnimalRepository animalRepository;
+  final UsuarioRepository usuarioRepository;
 
   const CuentaScreen({
     super.key,
@@ -30,6 +41,9 @@ class CuentaScreen extends StatelessWidget {
     required this.eventoSanitarioRepository,
     required this.catalogoRepository,
     required this.insumoRepository,
+    required this.ubicacionRepository,
+    required this.animalRepository,
+    required this.usuarioRepository,
   });
 
   void _proximamente(BuildContext context, String seccion) {
@@ -160,7 +174,19 @@ class CuentaScreen extends StatelessWidget {
               iconoColor: const Color(0xFF5D4037),
               titulo: 'Datos de la finca',
               subtitulo: 'Ubicación, lotes y potreros',
-              onTap: () => _proximamente(context, 'Datos de la finca'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => UbicacionInicioScreen(
+                      repository: ubicacionRepository,
+                      catalogoRepository: catalogoRepository,
+                      animalRepository: animalRepository,
+                      usuarioRepository: usuarioRepository,
+                      session: session,
+                    ),
+                  ),
+                );
+              },
             ),
             _opcion(
               context,

@@ -7,6 +7,8 @@ import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../../repositories/salud/evento_sanitario_repository.dart';
+import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../repositories/usuarios/usuario_repository.dart';
 import '../animales/animales_list_screen.dart';
 import '../inventario/inventario_list_screen.dart';
 import '../produccion/produccion_dashboard_screen.dart';
@@ -19,7 +21,7 @@ import 'cuenta_screen.dart';
 ///
 /// Desde el 2026-10-01, "Producción" abre primero el Dashboard (resumen de
 /// hoy, comparativo vs ayer, desglose por lote, historial e historial
-/// reciente) en vez de ir directo a la lista de Leche/Huevos — esa lista
+/// reciente) en vez de ir directo a la lista de Leche/Huevos -- esa lista
 /// sigue existiendo tal cual, pero ahora se llega a ella desde el botón
 /// "Registrar producción de hoy" del Dashboard.
 class HomeShell extends StatefulWidget {
@@ -29,6 +31,8 @@ class HomeShell extends StatefulWidget {
   final ProduccionRepository produccionRepository;
   final InsumoRepository insumoRepository;
   final EventoSanitarioRepository eventoSanitarioRepository;
+  final UbicacionRepository ubicacionRepository;
+  final UsuarioRepository usuarioRepository;
   final AuthSession session;
 
   const HomeShell({
@@ -39,6 +43,8 @@ class HomeShell extends StatefulWidget {
     required this.produccionRepository,
     required this.insumoRepository,
     required this.eventoSanitarioRepository,
+    required this.ubicacionRepository,
+    required this.usuarioRepository,
     required this.session,
   });
 
@@ -81,6 +87,9 @@ class _HomeShellState extends State<HomeShell> {
         eventoSanitarioRepository: widget.eventoSanitarioRepository,
         catalogoRepository: widget.catalogoRepository,
         insumoRepository: widget.insumoRepository,
+        ubicacionRepository: widget.ubicacionRepository,
+        animalRepository: widget.animalRepository,
+        usuarioRepository: widget.usuarioRepository,
       ),
     ];
 

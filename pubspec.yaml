@@ -11,10 +11,22 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   http: ^1.2.2
+  # 2026-11-10: lo necesita api_client.dart para fijar el Content-Type
+  # correcto (image/jpeg, image/png, etc.) al subir la foto de un Potrero
+  # -- sin esto, el backend la rechazaba con "Error interno del servidor"
+  # porque `http.MultipartFile.fromBytes` sin `contentType` manda
+  # `application/octet-stream` por defecto. Ya venía incluido de forma
+  # transitiva (es una dependencia del paquete `http`), pero se declara
+  # acá de forma explícita porque ahora se importa directamente.
+  http_parser: ^4.0.2
   intl: ^0.19.0
   fl_chart: ^0.69.0
   shared_preferences: ^2.3.2
   google_fonts: ^6.2.1
+  # 2026-11-05: para elegir la foto de un Potrero desde Detalle (Entrega 3
+  # de Ubicación) -- a diferencia de image_picker, sí funciona en Windows
+  # desktop además de Android/iOS/Web.
+  file_picker: ^8.1.4
  
 dev_dependencies:
   flutter_test:
@@ -23,3 +35,5 @@ dev_dependencies:
  
 flutter:
   uses-material-design: true
+ 
+ 
