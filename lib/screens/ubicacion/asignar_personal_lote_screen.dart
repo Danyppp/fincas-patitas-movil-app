@@ -5,6 +5,7 @@ import '../../models/auth/usuario.dart';
 import '../../models/catalogo/lote_animal.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/boton_pill.dart';
 
 /// Asignar Personal — Lote: selección única de un encargado por Lote, vía
@@ -18,6 +19,14 @@ import '../../widgets/boton_pill.dart';
 /// `GET /users` (para listar candidatos) exige rol Administrador en el
 /// backend real -- si la sesión activa no lo es, se muestra un aviso en
 /// vez de la lista.
+///
+/// 2026-11-10 (Fase 2, Estilos): tarjeta de "Encargado actual" con acento
+/// ámbar (mismo color que "Asignar Personal" en el Inicio de Ubicación) y
+/// filas de persona con ícono en círculo. El "cargo" que mostraba el
+/// mockup se descartó desde la sección 8 del documento de decisiones --
+/// se usa el rol real del sistema (`rolNombre`), ya presente aquí. El
+/// teléfono/botón "Llamar" del mockup tampoco se agregó: el modelo de
+/// Usuario de este proyecto no tiene un campo de teléfono.
 class AsignarPersonalLoteScreen extends StatefulWidget {
   final UbicacionRepository repository;
   final UsuarioRepository usuarioRepository;
@@ -147,6 +156,7 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Asignar Personal — Lote')),
       body: _cargando
@@ -162,7 +172,7 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
                   value: _loteSeleccionado,
                   decoration: const InputDecoration(
                     labelText: 'Lote',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.grid_view_outlined),
                   ),
                   items: _lotes
                       .map((l) =>
@@ -172,71 +182,86 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (_loteSeleccionado != null) ...[
-                  // 2026-11-05: Row en vez de ListTile -- ver nota en
-                  // asignar_animales_screen.dart (un botón como trailing de
-                  // ListTile puede disparar "BoxConstraints forces an
-                  // infinite width" y dejar la fila invisible).
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.person_outline),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    _loteSeleccionado!
-                                            .encargado?.nombreUsuario ??
-                                        'Sin encargado',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text(
-                                    _loteSeleccionado!
-                                            .encargado?.correoElectronico ??
-                                        '—',
-                                    style: const TextStyle(
-                                        fontSize: 12.5, color: Colors.black54)),
-                              ],
-                            ),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color:
+                          AppTheme.secondaryContainer.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.secondaryContainer,
+                            shape: BoxShape.circle,
                           ),
-                          if (_loteSeleccionado!.encargado != null) ...[
-                            const SizedBox(width: 10),
-                            BotonTexto(
-                              texto: 'Quitar',
-                              onTap: _guardando ? null : _quitarEncargado,
-                            ),
-                          ],
-                        ],
-                      ),
+                          child: const Icon(Icons.badge_outlined,
+                              color: AppTheme.onSecondaryContainer, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Encargado actual',
+                                  style: textTheme.labelMedium),
+                              Text(
+                                _loteSeleccionado!.encargado?.nombreUsuario ??
+                                    'Sin encargado',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
+                              ),
+                              if (_loteSeleccionado!.encargado != null)
+                                Text(
+                                    _loteSeleccionado!
+                                        .encargado!.correoElectronico,
+                                    style: textTheme.bodySmall),
+                            ],
+                          ),
+                        ),
+                        if (_loteSeleccionado!.encargado != null)
+                          BotonTexto(
+                            texto: 'Quitar',
+                            onTap: _guardando ? null : _quitarEncargado,
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text('Elegir encargado',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text('Elegir encargado', style: textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   if (_errorUsuarios != null)
                     Text(_errorUsuarios!,
                         style: const TextStyle(color: Colors.red))
                   else if (_usuarios.isEmpty)
-                    const Text('No hay usuarios disponibles',
-                        style: TextStyle(color: Colors.black54))
+                    Text('No hay usuarios disponibles',
+                        style: textTheme.bodyMedium)
                   else
                     ..._usuarios.map((u) {
                       final yaEsEncargado =
                           _loteSeleccionado!.encargado?.id == u.id;
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
+                        clipBehavior: Clip.antiAlias,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: 14, vertical: 10),
                           child: Row(
                             children: [
-                              const Icon(Icons.person_outline),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.secondaryContainer
+                                      .withValues(alpha: 0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.person_outline,
+                                    color: AppTheme.secondary, size: 18),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -244,7 +269,7 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
                                   children: [
                                     Text(u.nombreUsuario,
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
+                                            fontWeight: FontWeight.w700)),
                                     const SizedBox(height: 2),
                                     Text(
                                         '${u.correoElectronico} · ${u.rolNombre}',
@@ -256,10 +281,15 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
                               ),
                               const SizedBox(width: 10),
                               yaEsEncargado
-                                  ? const EtiquetaPill(
-                                      texto: 'Encargado actual')
+                                  ? EtiquetaPill(
+                                      texto: 'Encargado actual',
+                                      color: AppTheme.primaryContainer
+                                          .withValues(alpha: 0.5),
+                                      colorTexto: AppTheme.primary,
+                                    )
                                   : BotonPill(
                                       texto: 'Asignar',
+                                      color: AppTheme.primaryContainer,
                                       onTap:
                                           _guardando ? null : () => _asignar(u),
                                     ),
@@ -269,10 +299,10 @@ class _AsignarPersonalLoteScreenState extends State<AsignarPersonalLoteScreen> {
                       );
                     }),
                 ] else
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text('Elige un Lote para ver/cambiar su encargado',
-                        style: TextStyle(color: Colors.black54)),
+                        style: textTheme.bodyMedium),
                   ),
               ],
             ),

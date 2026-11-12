@@ -134,20 +134,31 @@ class BotonIcono extends StatelessWidget {
 /// [BotonPill].
 class EtiquetaPill extends StatelessWidget {
   final String texto;
+  final Color? color;
+  final Color? colorTexto;
 
-  const EtiquetaPill({super.key, required this.texto});
+  const EtiquetaPill({
+    super.key,
+    required this.texto,
+    this.color,
+    this.colorTexto,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFEBE9),
+        color: color ?? const Color(0xFFEFEBE9),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         texto,
-        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: colorTexto,
+        ),
       ),
     );
   }

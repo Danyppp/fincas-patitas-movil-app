@@ -6,6 +6,7 @@ import '../../models/catalogo/lote_animal.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/boton_pill.dart';
 import 'lote_form_screen.dart';
 
@@ -18,6 +19,18 @@ import 'lote_form_screen.dart';
 /// decisiones-diseno-vs-backend-ubicacion.md, sección 7). Quitar un animal
 /// de acá (2026-11-10, a pedido de Dany) sí está disponible directamente
 /// en esta pantalla, con el mismo botón "Quitar" por fila.
+///
+/// 2026-11-10 (Fase 2, Estilos): tarjeta de cabecera con etiqueta de
+/// especie, fecha de creación y los dos datos clave (población/encargado)
+/// en mini-tarjetas, siguiendo el mockup de Stitch. Se descartan de ese
+/// mockup: raza, estado de salud/peso por animal (no existen en el
+/// modelo de Animal de este proyecto -- son invención de Stitch) y el
+/// botón "Ver historial de rotación" (descartado desde la sección 1 del
+/// documento de decisiones). Los botones "Asignar animales"/"Asignar
+/// personal" del mockup no se agregaron acá -- esta pantalla no recibe
+/// `UsuarioRepository`, y esas acciones ya viven en el Inicio de
+/// Ubicación; agregarlas aquí sería duplicar navegación sin que Dany lo
+/// haya pedido.
 class LoteDetalleScreen extends StatefulWidget {
   final int loteId;
   final UbicacionRepository repository;
@@ -170,6 +183,7 @@ class _LoteDetalleScreenState extends State<LoteDetalleScreen> {
   @override
   Widget build(BuildContext context) {
     final lote = _lote;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(lote?.nombre ?? 'Lote'),
@@ -205,33 +219,148 @@ class _LoteDetalleScreenState extends State<LoteDetalleScreen> {
                             style: const TextStyle(color: Colors.red)),
                         const SizedBox(height: 12),
                       ],
-                      _fila('Especie', lote.especie?.nombre ?? '—'),
-                      _fila('Capacidad estimada',
-                          lote.capacidadEstimada?.toString() ?? '—'),
-                      _fila('Encargado',
-                          lote.encargado?.nombreUsuario ?? 'Sin asignar'),
-                      _fila(
-                          'Fecha de creación',
-                          lote.fechaCreacion != null
-                              ? '${lote.fechaCreacion!.day}/${lote.fechaCreacion!.month}/${lote.fechaCreacion!.year}'
-                              : '—'),
-                      _fila('Descripción', lote.descripcion ?? '—'),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (lote.especie != null)
+                                EtiquetaPill(
+                                  texto: lote.especie!.nombre,
+                                  color: AppTheme.primaryContainer
+                                      .withValues(alpha: 0.5),
+                                  colorTexto: AppTheme.primary,
+                                ),
+                              const SizedBox(height: 10),
+                              Text(lote.nombre,
+                                  style: textTheme.headlineMedium),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined,
+                                      size: 14, color: AppTheme.outline),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    lote.fechaCreacion != null
+                                        ? 'Creado el ${lote.fechaCreacion!.day}/${lote.fechaCreacion!.month}/${lote.fechaCreacion!.year}'
+                                        : 'Fecha de creación sin definir',
+                                    style: textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                              if (lote.descripcion != null &&
+                                  lote.descripcion!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(lote.descripcion!,
+                                    style: textTheme.bodyMedium),
+                              ],
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _miniDato(
+                                      icono: Icons.pets_outlined,
+                                      colorFondo: AppTheme.primaryContainer,
+                                      colorIcono: AppTheme.primary,
+                                      etiqueta: 'Población',
+                                      valor: '${_animales.length} animales',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _miniDato(
+                                      icono: Icons.badge_outlined,
+                                      colorFondo: AppTheme.secondaryContainer,
+                                      colorIcono: AppTheme.secondary,
+                                      etiqueta: 'Encargado',
+                                      valor: lote.encargado?.nombreUsuario ??
+                                          'Sin asignar',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (lote.capacidadEstimada != null) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Capacidad estimada: ${lote.capacidadEstimada}',
+                                  style: textTheme.bodySmall,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 20),
-                      Text('Animales (${_animales.length})',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text('Animales en este lote',
+                              style: textTheme.headlineSmall),
+                          const SizedBox(width: 8),
+                          EtiquetaPill(
+                            texto: '${_animales.length}',
+                            color: AppTheme.primaryContainer
+                                .withValues(alpha: 0.5),
+                            colorTexto: AppTheme.primary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       if (_animales.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text('Sin animales asignados',
-                              style: TextStyle(color: Colors.black54)),
+                              style: textTheme.bodyMedium),
                         )
                       else
                         ..._animales.map(_filaAnimal),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _miniDato({
+    required IconData icono,
+    required Color colorFondo,
+    required Color colorIcono,
+    required String etiqueta,
+    required String valor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorFondo.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration:
+                BoxDecoration(color: colorFondo, shape: BoxShape.circle),
+            child: Icon(icono, size: 16, color: colorIcono),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(etiqueta,
+                    style:
+                        const TextStyle(fontSize: 11, color: AppTheme.outline)),
+                Text(
+                  valor,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -244,21 +373,42 @@ class _LoteDetalleScreenState extends State<LoteDetalleScreen> {
     final quitandoEste = _quitando.contains(animal.id);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.pets_outlined),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryContainer.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child:
+                  Icon(Icons.pets_outlined, color: AppTheme.primary, size: 20),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(animal.nombre ?? animal.codigo,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(animal.nombre ?? animal.codigo,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('#${animal.codigo}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.outline)),
+                    ],
+                  ),
                   const SizedBox(height: 2),
-                  Text('${animal.codigo} · ${animal.genero} · ${animal.estado}',
+                  Text('${animal.genero} · ${animal.estado}',
                       style: const TextStyle(
                           fontSize: 12.5, color: Colors.black54)),
                 ],
@@ -276,22 +426,6 @@ class _LoteDetalleScreenState extends State<LoteDetalleScreen> {
                   ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _fila(String etiqueta, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 150,
-              child: Text(etiqueta,
-                  style: const TextStyle(color: Colors.black54))),
-          Expanded(child: Text(valor)),
-        ],
       ),
     );
   }

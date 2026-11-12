@@ -5,6 +5,7 @@ import '../../models/auth/usuario.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/boton_pill.dart';
 
 /// Asignar Personal — Potrero: selección MÚLTIPLE de encargados por
@@ -13,6 +14,11 @@ import '../../widgets/boton_pill.dart';
 ///
 /// Se excluye de la lista de candidatos al rol Administrador (rol_id=1),
 /// igual que en "Asignar Personal — Lote".
+///
+/// 2026-11-10 (Fase 2, Estilos): mismo lenguaje visual que
+/// `asignar_personal_lote_screen.dart` -- acento ámbar, íconos en círculo.
+/// Igual que allá, no se agregó el "cargo" de ejemplo del mockup (se usa
+/// el rol real) ni el teléfono/"Llamar" (no existe ese campo en Usuario).
 class AsignarPersonalPotreroScreen extends StatefulWidget {
   final UbicacionRepository repository;
   final UsuarioRepository usuarioRepository;
@@ -141,6 +147,7 @@ class _AsignarPersonalPotreroScreenState
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Asignar Personal — Potrero')),
       body: _cargando
@@ -156,7 +163,7 @@ class _AsignarPersonalPotreroScreenState
                   value: _potreroSeleccionado,
                   decoration: const InputDecoration(
                     labelText: 'Potrero',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.map_outlined),
                   ),
                   items: _potreros
                       .map((p) =>
@@ -166,26 +173,45 @@ class _AsignarPersonalPotreroScreenState
                 ),
                 const SizedBox(height: 16),
                 if (_potreroSeleccionado != null) ...[
-                  Text(
-                      'Encargados actuales (${_potreroSeleccionado!.encargados.length})',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Text('Encargados actuales',
+                          style: textTheme.headlineSmall),
+                      const SizedBox(width: 8),
+                      EtiquetaPill(
+                        texto: '${_potreroSeleccionado!.encargados.length}',
+                        color:
+                            AppTheme.secondaryContainer.withValues(alpha: 0.5),
+                        colorTexto: AppTheme.secondary,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   if (_potreroSeleccionado!.encargados.isEmpty)
-                    const Text('Sin encargados asignados',
-                        style: TextStyle(color: Colors.black54))
+                    Text('Sin encargados asignados',
+                        style: textTheme.bodyMedium)
                   else
-                    // 2026-11-05: Row en vez de ListTile -- ver nota en
-                    // asignar_animales_screen.dart.
                     ..._potreroSeleccionado!.encargados.map((pe) {
                       final guardandoEste = _guardando.contains(pe.usuario.id);
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
+                        clipBehavior: Clip.antiAlias,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 6),
+                              horizontal: 14, vertical: 6),
                           child: Row(
                             children: [
-                              const Icon(Icons.person_outline),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.secondaryContainer
+                                      .withValues(alpha: 0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.person_outline,
+                                    color: AppTheme.secondary, size: 18),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -193,7 +219,7 @@ class _AsignarPersonalPotreroScreenState
                                   children: [
                                     Text(pe.usuario.nombreUsuario,
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
+                                            fontWeight: FontWeight.w700)),
                                     const SizedBox(height: 2),
                                     Text(pe.usuario.correoElectronico,
                                         style: const TextStyle(
@@ -214,28 +240,35 @@ class _AsignarPersonalPotreroScreenState
                       );
                     }),
                   const SizedBox(height: 20),
-                  Text('Agregar encargado',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text('Agregar encargado', style: textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   if (_errorUsuarios != null)
                     Text(_errorUsuarios!,
                         style: const TextStyle(color: Colors.red))
                   else if (_usuarios.where((u) => !_esEncargado(u)).isEmpty)
-                    const Text('No hay más usuarios disponibles para agregar',
-                        style: TextStyle(color: Colors.black54))
+                    Text('No hay más usuarios disponibles para agregar',
+                        style: textTheme.bodyMedium)
                   else
-                    // 2026-11-05: Row en vez de ListTile -- ver nota en
-                    // asignar_animales_screen.dart.
                     ..._usuarios.where((u) => !_esEncargado(u)).map((u) {
                       final guardandoEste = _guardando.contains(u.id);
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
+                        clipBehavior: Clip.antiAlias,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: 14, vertical: 10),
                           child: Row(
                             children: [
-                              const Icon(Icons.person_outline),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceContainerHigh,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.person_outline,
+                                    color: AppTheme.onSurfaceVariant, size: 18),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -243,7 +276,7 @@ class _AsignarPersonalPotreroScreenState
                                   children: [
                                     Text(u.nombreUsuario,
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
+                                            fontWeight: FontWeight.w700)),
                                     const SizedBox(height: 2),
                                     Text(
                                         '${u.correoElectronico} · ${u.rolNombre}',
@@ -256,6 +289,8 @@ class _AsignarPersonalPotreroScreenState
                               const SizedBox(width: 10),
                               BotonPill(
                                 texto: 'Agregar',
+                                color: AppTheme.secondaryContainer,
+                                colorTexto: AppTheme.onSecondaryContainer,
                                 cargando: guardandoEste,
                                 onTap: () => _agregar(u),
                               ),
@@ -265,11 +300,11 @@ class _AsignarPersonalPotreroScreenState
                       );
                     }),
                 ] else
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text(
                         'Elige un Potrero para ver/cambiar sus encargados',
-                        style: TextStyle(color: Colors.black54)),
+                        style: textTheme.bodyMedium),
                   ),
               ],
             ),

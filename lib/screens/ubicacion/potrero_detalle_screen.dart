@@ -6,6 +6,7 @@ import '../../models/animal.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/boton_pill.dart';
 import 'potrero_form_screen.dart';
 
@@ -24,6 +25,15 @@ import 'potrero_form_screen.dart';
 /// acá (2026-11-10, a pedido de Dany) sí está disponible directamente en
 /// esta pantalla, con un botón "Quitar" por fila (mismo patrón que
 /// `LoteDetalleScreen`).
+///
+/// 2026-11-10 (Fase 2, Estilos): tarjeta de cabecera con etiquetas de
+/// estado/tamaño sobre la foto, y mini-tarjetas de Capacidad/Encargados
+/// (acento coral, el mismo ya usado para Potrero en el resto del módulo),
+/// siguiendo el mockup de Stitch. Se descartan: "Ocupación/Descanso" en
+/// días y el botón "Ver historial de rotación" (ambos descartados desde
+/// la sección 1/6 del documento de decisiones -- no existen en el
+/// backend). Raza/peso/estado de salud por animal tampoco existen en el
+/// modelo de Animal de este proyecto.
 class PotreroDetalleScreen extends StatefulWidget {
   final int potreroId;
   final UbicacionRepository repository;
@@ -205,6 +215,7 @@ class _PotreroDetalleScreenState extends State<PotreroDetalleScreen> {
   @override
   Widget build(BuildContext context) {
     final potrero = _potrero;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(potrero?.nombre ?? 'Potrero'),
@@ -240,92 +251,234 @@ class _PotreroDetalleScreenState extends State<PotreroDetalleScreen> {
                             style: const TextStyle(color: Colors.red)),
                         const SizedBox(height: 12),
                       ],
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: potrero.fotoUrl != null
-                                ? Image.network(potrero.fotoUrl!,
-                                    height: 170,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover)
-                                : Container(
-                                    height: 170,
-                                    width: double.infinity,
-                                    color: const Color(0xFFEFEBE9),
-                                    child: const Icon(Icons.image_outlined,
-                                        size: 48, color: Colors.black38),
+                      Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
+                                potrero.fotoUrl != null
+                                    ? Image.network(potrero.fotoUrl!,
+                                        height: 160,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover)
+                                    : Container(
+                                        height: 160,
+                                        width: double.infinity,
+                                        color: AppTheme.surfaceContainerHigh,
+                                        child: const Icon(Icons.image_outlined,
+                                            size: 48, color: AppTheme.outline),
+                                      ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: FloatingActionButton.small(
+                                    heroTag: 'cambiarFotoPotrero',
+                                    backgroundColor: AppTheme.tertiaryContainer,
+                                    foregroundColor: Colors.white,
+                                    onPressed:
+                                        _subiendoFoto ? null : _cambiarFoto,
+                                    child: _subiendoFoto
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white))
+                                        : const Icon(Icons.camera_alt_outlined,
+                                            size: 18),
                                   ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: FloatingActionButton.small(
-                              heroTag: 'cambiarFotoPotrero',
-                              onPressed: _subiendoFoto ? null : _cambiarFoto,
-                              child: _subiendoFoto
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white))
-                                  : const Icon(Icons.camera_alt_outlined,
-                                      size: 18),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      EtiquetaPill(
+                                        texto: potrero.estado ?? 'Sin estado',
+                                        color: AppTheme.primaryContainer
+                                            .withValues(alpha: 0.5),
+                                        colorTexto: AppTheme.primary,
+                                      ),
+                                      if (potrero.tamanoHectareas != null)
+                                        EtiquetaPill(
+                                          texto:
+                                              '${potrero.tamanoHectareas} ha',
+                                          color: AppTheme.tertiaryContainer
+                                              .withValues(alpha: 0.4),
+                                          colorTexto: AppTheme.tertiary,
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(potrero.nombre,
+                                      style: textTheme.headlineMedium),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.calendar_today_outlined,
+                                          size: 14, color: AppTheme.outline),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        potrero.fechaCreacion != null
+                                            ? 'Creado el ${potrero.fechaCreacion!.day}/${potrero.fechaCreacion!.month}/${potrero.fechaCreacion!.year}'
+                                            : 'Fecha de creación sin definir',
+                                        style: textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                  if (potrero.descripcion != null &&
+                                      potrero.descripcion!.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(potrero.descripcion!,
+                                        style: textTheme.bodyMedium),
+                                  ],
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _miniDato(
+                                          icono: Icons.pets_outlined,
+                                          colorFondo: AppTheme.primaryContainer,
+                                          colorIcono: AppTheme.primary,
+                                          etiqueta: 'Capacidad',
+                                          valor: potrero.capacidadAnimales !=
+                                                  null
+                                              ? '${_animales.length} / ${potrero.capacidadAnimales}'
+                                              : '${_animales.length} animales',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _miniDato(
+                                          icono: Icons.badge_outlined,
+                                          colorFondo:
+                                              AppTheme.secondaryContainer,
+                                          colorIcono: AppTheme.secondary,
+                                          etiqueta: 'Encargados',
+                                          valor: potrero.encargados.isEmpty
+                                              ? 'Sin asignar'
+                                              : potrero.encargados
+                                                  .map((pe) =>
+                                                      pe.usuario.nombreUsuario)
+                                                  .join(', '),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      _fila('Estado', potrero.estado ?? '—'),
-                      _fila('Capacidad',
-                          potrero.capacidadAnimales?.toString() ?? '—'),
-                      _fila(
-                          'Tamaño',
-                          potrero.tamanoHectareas != null
-                              ? '${potrero.tamanoHectareas} ha'
-                              : '—'),
-                      _fila(
-                          'Fecha de creación',
-                          potrero.fechaCreacion != null
-                              ? '${potrero.fechaCreacion!.day}/${potrero.fechaCreacion!.month}/${potrero.fechaCreacion!.year}'
-                              : '—'),
-                      _fila('Descripción', potrero.descripcion ?? '—'),
                       const SizedBox(height: 20),
                       Text('Encargados (${potrero.encargados.length})',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: textTheme.headlineSmall),
                       const SizedBox(height: 8),
                       if (potrero.encargados.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text('Sin encargados asignados',
-                              style: TextStyle(color: Colors.black54)),
+                              style: textTheme.bodyMedium),
                         )
                       else
                         ...potrero.encargados.map((pe) => Card(
                               margin: const EdgeInsets.only(bottom: 8),
+                              clipBehavior: Clip.antiAlias,
                               child: ListTile(
-                                leading: const Icon(Icons.person_outline),
+                                leading: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.secondaryContainer
+                                        .withValues(alpha: 0.5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.person_outline,
+                                      color: AppTheme.secondary, size: 18),
+                                ),
                                 title: Text(pe.usuario.nombreUsuario),
                                 subtitle: Text(pe.usuario.correoElectronico),
                               ),
                             )),
                       const SizedBox(height: 20),
-                      Text('Animales (${_animales.length})',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text('Animales en el espacio',
+                              style: textTheme.headlineSmall),
+                          const SizedBox(width: 8),
+                          EtiquetaPill(
+                            texto: '${_animales.length}',
+                            color: AppTheme.tertiaryContainer
+                                .withValues(alpha: 0.4),
+                            colorTexto: AppTheme.tertiary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       if (_animales.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text('Sin animales asignados',
-                              style: TextStyle(color: Colors.black54)),
+                              style: textTheme.bodyMedium),
                         )
                       else
                         ..._animales.map(_filaAnimal),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _miniDato({
+    required IconData icono,
+    required Color colorFondo,
+    required Color colorIcono,
+    required String etiqueta,
+    required String valor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorFondo.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration:
+                BoxDecoration(color: colorFondo, shape: BoxShape.circle),
+            child: Icon(icono, size: 16, color: colorIcono),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(etiqueta,
+                    style:
+                        const TextStyle(fontSize: 11, color: AppTheme.outline)),
+                Text(
+                  valor,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -337,21 +490,42 @@ class _PotreroDetalleScreenState extends State<PotreroDetalleScreen> {
     final quitandoEste = _quitando.contains(animal.id);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.pets_outlined),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.tertiaryContainer.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child:
+                  Icon(Icons.pets_outlined, color: AppTheme.tertiary, size: 20),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(animal.nombre ?? animal.codigo,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(animal.nombre ?? animal.codigo,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('#${animal.codigo}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.outline)),
+                    ],
+                  ),
                   const SizedBox(height: 2),
-                  Text('${animal.codigo} · ${animal.genero} · ${animal.estado}',
+                  Text('${animal.genero} · ${animal.estado}',
                       style: const TextStyle(
                           fontSize: 12.5, color: Colors.black54)),
                 ],
@@ -369,22 +543,6 @@ class _PotreroDetalleScreenState extends State<PotreroDetalleScreen> {
                   ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _fila(String etiqueta, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 150,
-              child: Text(etiqueta,
-                  style: const TextStyle(color: Colors.black54))),
-          Expanded(child: Text(valor)),
-        ],
       ),
     );
   }

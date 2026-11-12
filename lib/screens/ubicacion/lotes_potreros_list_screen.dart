@@ -6,6 +6,8 @@ import '../../models/catalogo/potrero.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/boton_pill.dart';
 import 'lote_detalle_screen.dart';
 import 'lote_form_screen.dart';
 import 'potrero_detalle_screen.dart';
@@ -21,6 +23,15 @@ import 'potrero_form_screen.dart';
 /// creación. Al volver de cualquiera de los dos, la lista se recarga sola
 /// (no hace falta revisar qué devolvió la navegación -- recargar siempre
 /// es barato y evita que se quede desactualizada).
+///
+/// 2026-11-10 (Fase 2, Estilos): se descartan de este listado la tarjeta
+/// de "Finca" con fotos/certificación, la barra de estadísticas (Animales
+/// totales/Lotes activos/Potreros) y el buscador + filtros por especie
+/// del mockup de Stitch -- nada de eso se pidió ni está respaldado por el
+/// backend en esta pantalla (ver decisiones-diseno-vs-backend-ubicacion.md,
+/// sección 3). Se conserva la estructura de Entrega 2 (tabs + FAB), solo
+/// con el look visual del tema: tarjetas con una etiqueta de especie,
+/// ícono según el tipo de lugar, y la pestaña con pill de color.
 class LotesPotrerosListScreen extends StatefulWidget {
   final UbicacionRepository repository;
   final CatalogoRepository catalogoRepository;
@@ -136,12 +147,37 @@ class _LotesPotrerosListScreenState extends State<LotesPotrerosListScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lotes y Potreros'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: 'Lotes (${_lotes.length})'),
-            Tab(text: 'Potreros (${_potreros.length})'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: AppTheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelColor: AppTheme.onPrimary,
+                unselectedLabelColor: AppTheme.onSurfaceVariant,
+                labelStyle: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+                tabs: [
+                  Tab(text: 'Lotes (${_lotes.length})'),
+                  Tab(text: 'Potreros (${_potreros.length})'),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
       body: _cargando
@@ -157,6 +193,9 @@ class _LotesPotrerosListScreenState extends State<LotesPotrerosListScreen>
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _crear,
+        backgroundColor: AppTheme.primaryContainer,
+        foregroundColor: AppTheme.onPrimary,
+        shape: const StadiumBorder(),
         icon: const Icon(Icons.add),
         label: Text(_tabController.index == 0 ? 'Crear Lote' : 'Crear Potrero'),
       ),
@@ -170,24 +209,22 @@ class _LotesPotrerosListScreenState extends State<LotesPotrerosListScreen>
     return RefreshIndicator(
       onRefresh: _cargar,
       child: ListView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
         itemCount: _lotes.length,
         itemBuilder: (_, i) {
           final lote = _lotes[i];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              leading: const Icon(Icons.grid_view_outlined),
-              title: Text(lote.nombre),
-              subtitle: Text([
-                if (lote.especie != null) lote.especie!.nombre,
-                '${lote.cantidadAnimales} animal(es)',
-                if (lote.encargado != null)
-                  'Encargado: ${lote.encargado!.nombreUsuario}',
-              ].join(' · ')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _abrirLote(lote),
-            ),
+          return _filaLugar(
+            onTap: () => _abrirLote(lote),
+            icono: Icons.grid_view_outlined,
+            colorIcono: AppTheme.primary,
+            colorFondoIcono: AppTheme.primaryContainer,
+            titulo: lote.nombre,
+            etiqueta: lote.especie?.nombre,
+            detalle: [
+              if (lote.encargado != null)
+                'Encargado: ${lote.encargado!.nombreUsuario}',
+            ].join(' · '),
+            cantidad: lote.cantidadAnimales,
           );
         },
       ),
@@ -201,30 +238,117 @@ class _LotesPotrerosListScreenState extends State<LotesPotrerosListScreen>
     return RefreshIndicator(
       onRefresh: _cargar,
       child: ListView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
         itemCount: _potreros.length,
         itemBuilder: (_, i) {
           final potrero = _potreros[i];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              leading: potrero.fotoUrl != null
-                  ? CircleAvatar(
-                      backgroundImage: NetworkImage(potrero.fotoUrl!))
-                  : const CircleAvatar(child: Icon(Icons.map_outlined)),
-              title: Text(potrero.nombre),
-              subtitle: Text([
-                potrero.estado ?? 'Sin estado',
-                if (potrero.capacidadAnimales != null)
-                  'Capacidad: ${potrero.capacidadAnimales}',
-                if (potrero.encargados.isNotEmpty)
-                  '${potrero.encargados.length} encargado(s)',
-              ].join(' · ')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _abrirPotrero(potrero),
-            ),
+          return _filaLugar(
+            onTap: () => _abrirPotrero(potrero),
+            icono: Icons.map_outlined,
+            colorIcono: AppTheme.tertiary,
+            colorFondoIcono: AppTheme.tertiaryContainer,
+            fotoUrl: potrero.fotoUrl,
+            titulo: potrero.nombre,
+            etiqueta: potrero.estado,
+            detalle: [
+              if (potrero.capacidadAnimales != null)
+                'Capacidad: ${potrero.capacidadAnimales}',
+              if (potrero.encargados.isNotEmpty)
+                '${potrero.encargados.length} encargado(s)',
+            ].join(' · '),
+            cantidad: null,
           );
         },
+      ),
+    );
+  }
+
+  // Fila compartida entre Lotes y Potreros: ícono (o foto, solo Potrero
+  // la tiene) en círculo de color, nombre, etiqueta de especie/estado y
+  // una línea de detalle. Card + InkWell (no ListTile con botón) -- acá
+  // el trailing es solo un Icon, sin riesgo del bug de
+  // ButtonStyleButton+Card documentado en el doc de decisiones.
+  Widget _filaLugar({
+    required VoidCallback onTap,
+    required IconData icono,
+    required Color colorIcono,
+    required Color colorFondoIcono,
+    required String titulo,
+    required String detalle,
+    String? etiqueta,
+    String? fotoUrl,
+    int? cantidad,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorFondoIcono.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                  image: fotoUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(fotoUrl), fit: BoxFit.cover)
+                      : null,
+                ),
+                child: fotoUrl == null
+                    ? Icon(icono, color: colorIcono, size: 24)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (etiqueta != null && etiqueta.isNotEmpty) ...[
+                      EtiquetaPill(
+                        texto: etiqueta,
+                        color: colorFondoIcono.withValues(alpha: 0.5),
+                        colorTexto: colorIcono,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    Text(titulo,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    if (detalle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(detalle,
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ],
+                ),
+              ),
+              if (cantidad != null) ...[
+                const SizedBox(width: 8),
+                Column(
+                  children: [
+                    Text('$cantidad',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(color: AppTheme.primary)),
+                    Text('cabezas',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ],
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right, color: AppTheme.outline),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
+import '../../theme/app_theme.dart';
 import 'asignar_animales_screen.dart';
 import 'asignar_personal_lote_screen.dart';
 import 'asignar_personal_potrero_screen.dart';
@@ -29,6 +30,16 @@ import 'lotes_potreros_list_screen.dart';
 /// 2026-11-05 (Entrega 2, Crear/Editar): ahora recibe también
 /// `catalogoRepository` -- lo necesita `LotesPotrerosListScreen` para
 /// pasárselo al formulario de Crear/Editar Lote (dropdown de especies).
+///
+/// 2026-11-10 (Fase 2, Estilos): tarjetas de atajo con ícono en círculo de
+/// color (mismo patrón ya usado en `produccion_dashboard_screen.dart`),
+/// siguiendo los colores del mockup de Stitch para cada módulo -- verde
+/// (primario) para "Lotes y Potreros", coral (terciario) para "Asignar
+/// Animales", ámbar (secundario) para las dos pantallas de "Asignar
+/// Personal". El encabezado ("Finca La Esperanza" + subtítulo) usa ahora
+/// la tipografía del tema en vez de estilos sueltos; se mantiene sin la
+/// tarjeta de estadísticas del mockup (descartada, ver sección 4 del
+/// documento de decisiones -- no hay datos reales que mostrar ahí).
 class UbicacionInicioScreen extends StatelessWidget {
   final UbicacionRepository repository;
   final CatalogoRepository catalogoRepository;
@@ -47,24 +58,24 @@ class UbicacionInicioScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Ubicación')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Finca La Esperanza',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
+          Text('Finca La Esperanza', style: textTheme.headlineMedium),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Lotes, potreros y asignación de animales y personal',
-            style: TextStyle(color: Colors.black54),
+            style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
           _atajo(
             context,
-            icono: Icons.map_outlined,
+            icono: Icons.forest_outlined,
+            colorFondo: AppTheme.primaryContainer,
+            colorIcono: AppTheme.primary,
             titulo: 'Lotes y Potreros',
             subtitulo: 'Ver, crear y administrar',
             onTap: () => Navigator.of(context).push(
@@ -80,7 +91,9 @@ class UbicacionInicioScreen extends StatelessWidget {
           ),
           _atajo(
             context,
-            icono: Icons.pets_outlined,
+            icono: Icons.swap_horiz,
+            colorFondo: AppTheme.tertiaryContainer,
+            colorIcono: AppTheme.tertiary,
             titulo: 'Asignar Animales',
             subtitulo: 'A un Lote o a un Potrero',
             onTap: () => Navigator.of(context).push(
@@ -94,7 +107,9 @@ class UbicacionInicioScreen extends StatelessWidget {
           ),
           _atajo(
             context,
-            icono: Icons.person_outline,
+            icono: Icons.badge_outlined,
+            colorFondo: AppTheme.secondaryContainer,
+            colorIcono: AppTheme.secondary,
             titulo: 'Asignar Personal — Lote',
             subtitulo: 'Un encargado por lote',
             onTap: () => Navigator.of(context).push(
@@ -109,6 +124,8 @@ class UbicacionInicioScreen extends StatelessWidget {
           _atajo(
             context,
             icono: Icons.groups_outlined,
+            colorFondo: AppTheme.secondaryContainer,
+            colorIcono: AppTheme.secondary,
             titulo: 'Asignar Personal — Potrero',
             subtitulo: 'Varios encargados por potrero',
             onTap: () => Navigator.of(context).push(
@@ -128,18 +145,51 @@ class UbicacionInicioScreen extends StatelessWidget {
   Widget _atajo(
     BuildContext context, {
     required IconData icono,
+    required Color colorFondo,
+    required Color colorIcono,
     required String titulo,
     required String subtitulo,
     required VoidCallback onTap,
   }) {
+    // Card + InkWell en vez de ListTile con trailing clicable: no hay
+    // ningún ButtonStyleButton acá (el chevron es solo un Icon), así que
+    // esta fila no corre el riesgo del bug documentado en
+    // decisiones-diseno-vs-backend-ubicacion.md sección 12 -- se mantiene
+    // igual por consistencia visual con el resto del módulo.
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(icono),
-        title: Text(titulo),
-        subtitle: Text(subtitulo),
-        trailing: const Icon(Icons.chevron_right),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colorFondo.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icono, color: colorIcono, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titulo, style: Theme.of(context).textTheme.bodyLarge),
+                    const SizedBox(height: 2),
+                    Text(subtitulo,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: AppTheme.outline),
+            ],
+          ),
+        ),
       ),
     );
   }

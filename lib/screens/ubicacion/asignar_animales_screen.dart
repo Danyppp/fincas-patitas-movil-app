@@ -6,6 +6,7 @@ import '../../models/catalogo/lote_animal.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/boton_pill.dart';
 
 /// Asignar Animales -- una sola pantalla reutilizada para Lote y para
@@ -25,6 +26,18 @@ import '../../widgets/boton_pill.dart';
 /// La barra de "Ocupación actual X/Y" solo se muestra para destino
 /// Potrero (el Lote no tiene límite de capacidad) -- es informativa, no
 /// bloquea la asignación si ya está lleno (el mockup no pedía bloquearlo).
+///
+/// 2026-11-10 (Fase 2, Estilos): tarjeta de "Destino de asignación" con
+/// el dropdown adentro (como el mockup), barra de ocupación en verde, y
+/// filas de animal con el mismo patrón de ícono en círculo del resto del
+/// módulo. **No** se implementó la selección múltiple con confirmación en
+/// lote ("Seleccionar todos" + "Confirmar asignación (N)") del mockup --
+/// se mantiene la asignación una por una ya confirmada por Dany, porque
+/// cambiar a selección múltiple es un cambio de flujo, no solo de estilo,
+/// y no fue parte de lo pedido. Tampoco se agregaron los filtros por
+/// especie en chips (Vacas/Cerdos/Gallinas) del mockup -- el filtro por
+/// especie ya es automático al elegir un Lote destino (ver sección 7 del
+/// documento de decisiones).
 class AsignarAnimalesScreen extends StatefulWidget {
   final UbicacionRepository repository;
   final AnimalRepository animalRepository;
@@ -266,6 +279,10 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
   Widget build(BuildContext context) {
     final destinoElegido =
         _esLote ? _loteDestino != null : _potreroDestino != null;
+    final textTheme = Theme.of(context).textTheme;
+    final colorAcento = _esLote ? AppTheme.primary : AppTheme.tertiary;
+    final colorAcentoFondo =
+        _esLote ? AppTheme.primaryContainer : AppTheme.tertiaryContainer;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Asignar Animales')),
@@ -292,57 +309,106 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
                   selected: {_esLote},
                   onSelectionChanged: (s) => _cambiarTipo(s.first),
                 ),
-                const SizedBox(height: 12),
-                if (_esLote)
-                  DropdownButtonFormField<LoteAnimal>(
-                    value: _loteDestino,
-                    decoration: const InputDecoration(
-                      labelText: 'Lote destino',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _lotes
-                        .map((l) =>
-                            DropdownMenuItem(value: l, child: Text(l.nombre)))
-                        .toList(),
-                    onChanged: _elegirLoteDestino,
-                  )
-                else
-                  DropdownButtonFormField<Potrero>(
-                    value: _potreroDestino,
-                    decoration: const InputDecoration(
-                      labelText: 'Potrero destino',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _potreros
-                        .map((p) =>
-                            DropdownMenuItem(value: p, child: Text(p.nombre)))
-                        .toList(),
-                    onChanged: _elegirPotreroDestino,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colorAcentoFondo.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                   ),
-                if (!_esLote &&
-                    _potreroDestino != null &&
-                    _ocupacionPotrero != null) ...[
-                  const SizedBox(height: 8),
-                  _barraOcupacion(
-                      _ocupacionPotrero!, _potreroDestino!.capacidadAnimales),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: colorAcentoFondo.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _esLote
+                                  ? Icons.grid_view_outlined
+                                  : Icons.map_outlined,
+                              size: 15,
+                              color: colorAcento,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('DESTINO DE ASIGNACIÓN',
+                              style: textTheme.labelSmall
+                                  ?.copyWith(color: colorAcento)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLowest,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusDefault),
+                        ),
+                        child: _esLote
+                            ? DropdownButtonHideUnderline(
+                                child: DropdownButtonFormField<LoteAnimal>(
+                                  value: _loteDestino,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Lote destino',
+                                    border: InputBorder.none,
+                                    filled: false,
+                                  ),
+                                  items: _lotes
+                                      .map((l) => DropdownMenuItem(
+                                          value: l, child: Text(l.nombre)))
+                                      .toList(),
+                                  onChanged: _elegirLoteDestino,
+                                ),
+                              )
+                            : DropdownButtonHideUnderline(
+                                child: DropdownButtonFormField<Potrero>(
+                                  value: _potreroDestino,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Potrero destino',
+                                    border: InputBorder.none,
+                                    filled: false,
+                                  ),
+                                  items: _potreros
+                                      .map((p) => DropdownMenuItem(
+                                          value: p, child: Text(p.nombre)))
+                                      .toList(),
+                                  onChanged: _elegirPotreroDestino,
+                                ),
+                              ),
+                      ),
+                      if (!_esLote &&
+                          _potreroDestino != null &&
+                          _ocupacionPotrero != null) ...[
+                        const SizedBox(height: 10),
+                        _barraOcupacion(_ocupacionPotrero!,
+                            _potreroDestino!.capacidadAnimales),
+                      ],
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
                 if (destinoElegido) ...[
                   TextField(
                     controller: _buscarCtrl,
                     decoration: InputDecoration(
-                      labelText: 'Buscar animal (arete/código o nombre)',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: _buscando
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.search),
-                        onPressed: _buscando ? null : _buscar,
-                      ),
+                      hintText: 'Buscar por arete, nombre...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _buscando
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
+                            )
+                          : null,
                     ),
                     onSubmitted: (_) => _buscar(),
                   ),
@@ -359,7 +425,7 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
                         _esLote
                             ? 'No hay animales de esta especie disponibles'
                             : 'No hay animales disponibles',
-                        style: const TextStyle(color: Colors.black54),
+                        style: textTheme.bodyMedium,
                       ),
                     )
                   else
@@ -369,7 +435,7 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text(
                         'Elige un ${_esLote ? 'Lote' : 'Potrero'} destino para buscar animales',
-                        style: const TextStyle(color: Colors.black54)),
+                        style: textTheme.bodyMedium),
                   ),
               ],
             ),
@@ -385,15 +451,16 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(texto, style: const TextStyle(fontSize: 13)),
-        const SizedBox(height: 4),
+        Text(texto,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
           child: LinearProgressIndicator(
             value: valor.clamp(0.0, 1.0),
-            minHeight: 6,
-            backgroundColor: const Color(0xFFEFEBE9),
-            color: valor >= 1.0 ? Colors.red : Colors.green,
+            minHeight: 8,
+            backgroundColor: Colors.white.withValues(alpha: 0.6),
+            color: valor >= 1.0 ? AppTheme.error : AppTheme.primary,
           ),
         ),
       ],
@@ -430,18 +497,27 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
       child: InkWell(
         onTap: () => _mostrarDetalle(animal),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(Icons.pets_outlined),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryContainer.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.pets_outlined,
+                    color: AppTheme.primary, size: 20),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(animal.nombreVisible,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text(
                       [
@@ -459,9 +535,14 @@ class _AsignarAnimalesScreenState extends State<AsignarAnimalesScreen> {
               ),
               const SizedBox(width: 10),
               yaAqui
-                  ? const EtiquetaPill(texto: 'Ya aquí')
+                  ? EtiquetaPill(
+                      texto: 'Ya aquí',
+                      color: AppTheme.primaryContainer.withValues(alpha: 0.5),
+                      colorTexto: AppTheme.primary,
+                    )
                   : BotonPill(
                       texto: ubicacionActual.isEmpty ? 'Asignar' : 'Reasignar',
+                      color: AppTheme.primaryContainer,
                       cargando: asignandoEste,
                       onTap: () => _asignar(animal),
                     ),

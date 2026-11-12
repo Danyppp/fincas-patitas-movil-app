@@ -4,19 +4,26 @@ import 'package:flutter/services.dart';
 import '../../core/api_exception.dart';
 import '../../models/catalogo/potrero.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
+import '../../theme/app_theme.dart';
 
 /// Formulario de Crear/Editar Potrero, contra `UbicacionRepository`.
 ///
 /// Fase 1 (funcional, pocos estilos). `estado` no tiene una lista fija en
-/// el backend (es un `string` libre) -- se ofrece un dropdown con los
+/// el backend (es un `string` libre) -- se ofrece un selector con los
 /// valores que ya se usan en los datos reales/de prueba (Disponible,
 /// Ocupado, En mantenimiento) para no dejarlo en blanco por error.
 ///
 /// La foto NO está en este formulario: subir una requiere elegir un
-/// archivo de la galería/cámara (paquete `image_picker`, que el proyecto
-/// todavía no tiene instalado) -- queda para cuando se construya la
-/// pantalla de Detalle de Potrero. Asignar encargados tampoco está acá,
-/// igual que en Lote -- va en "Asignar Personal — Potrero".
+/// archivo de la galería/cámara -- queda para la pantalla de Detalle de
+/// Potrero (ver decisiones-diseno-vs-backend-ubicacion.md, sección 5),
+/// usando `file_picker`. Asignar encargados tampoco está acá, igual que
+/// en Lote -- va en "Asignar Personal — Potrero".
+///
+/// 2026-11-10 (Fase 2, Estilos): mismo lenguaje visual que
+/// `lote_form_screen.dart` -- campos con ícono/sufijo, fecha como
+/// contenedor con ícono, y "Estado" pasa de dropdown a chips
+/// seleccionables (coincide con el acento coral ya usado para Potrero en
+/// el resto del módulo). La foto sigue sin estar acá, como ya decidido.
 class PotreroFormScreen extends StatefulWidget {
   final UbicacionRepository repository;
   final Potrero? potreroExistente;
@@ -190,12 +197,12 @@ class _PotreroFormScreenState extends State<PotreroFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // El dropdown necesita que `_estado` exista entre sus `items` (o sea
+    // El selector necesita que `_estado` exista entre sus opciones (o sea
     // null) -- si el potrero editado trae un estado "raro" que no está en
-    // _estadosSugeridos, se agrega como opción extra para no romper el
-    // DropdownButtonFormField.
+    // _estadosSugeridos, se agrega como opción extra para no perderlo.
     final opciones =
         {..._estadosSugeridos, if (_estado != null) _estado!}.toList();
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -222,38 +229,56 @@ class _PotreroFormScreenState extends State<PotreroFormScreen> {
               Text(_error!, style: const TextStyle(color: Colors.red)),
               const SizedBox(height: 12),
             ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.tertiaryContainer.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.tertiaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.map_outlined, color: Colors.white),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _esEdicion ? 'Editar Potrero' : 'Nuevo Potrero',
+                          style: textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text('Define el área y la carga animal óptima',
+                            style: textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Nombre del potrero *', style: textTheme.labelMedium),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _nombreCtrl,
               decoration: const InputDecoration(
-                labelText: 'Nombre *',
-                border: OutlineInputBorder(),
+                hintText: 'ej. Potrero Las Ceibas',
+                prefixIcon: Icon(Icons.grass_outlined),
               ),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Obligatorio' : null,
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _estado,
-              decoration: const InputDecoration(
-                labelText: 'Estado',
-                border: OutlineInputBorder(),
-              ),
-              items: opciones
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
-              onChanged: (v) => setState(() => _estado = v),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _capacidadCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Capacidad (animales)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text('Tamaño del potrero', style: textTheme.labelMedium),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _tamanoCtrl,
               keyboardType:
@@ -262,27 +287,95 @@ class _PotreroFormScreenState extends State<PotreroFormScreen> {
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
               ],
               decoration: const InputDecoration(
-                labelText: 'Tamaño (hectáreas)',
-                border: OutlineInputBorder(),
+                hintText: 'ej. 2.5',
+                prefixIcon: Icon(Icons.straighten_outlined),
+                suffixText: 'ha',
               ),
             ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Fecha de creación'),
-              subtitle: Text(_fechaCreacion == null
-                  ? 'Sin definir'
-                  : '${_fechaCreacion!.day}/${_fechaCreacion!.month}/${_fechaCreacion!.year}'),
-              trailing: const Icon(Icons.calendar_today, size: 18),
-              onTap: _elegirFecha,
+            const SizedBox(height: 16),
+            Text('Capacidad recomendada', style: textTheme.labelMedium),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _capacidadCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                hintText: 'ej. 8',
+                suffixText: 'animales',
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text('Estado', style: textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: opciones.map((opcion) {
+                final seleccionado = _estado == opcion;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  onTap: () => setState(() => _estado = opcion),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: seleccionado
+                          ? AppTheme.tertiaryContainer
+                          : AppTheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                      border: Border.all(
+                        color: seleccionado
+                            ? AppTheme.tertiaryContainer
+                            : AppTheme.outlineVariant,
+                      ),
+                    ),
+                    child: Text(
+                      opcion,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: seleccionado ? Colors.white : AppTheme.onSurface,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Text('Fecha de creación', style: textTheme.labelMedium),
+            const SizedBox(height: 6),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+              onTap: _elegirFecha,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _fechaCreacion == null
+                            ? 'Sin definir'
+                            : '${_fechaCreacion!.day}/${_fechaCreacion!.month}/${_fechaCreacion!.year}',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Descripción', style: textTheme.labelMedium),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _descripcionCtrl,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Descripción',
-                border: OutlineInputBorder(),
+                hintText: 'Notas sobre el pasto, la cerca, acceso de agua...',
               ),
             ),
             const SizedBox(height: 24),
@@ -292,8 +385,14 @@ class _PotreroFormScreenState extends State<PotreroFormScreen> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : Text(_esEdicion ? 'Guardar cambios' : 'Crear Potrero'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _guardando ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
             ),
           ],
         ),
