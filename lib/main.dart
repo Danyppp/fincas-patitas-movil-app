@@ -26,12 +26,18 @@ import 'repositories/reproduccion/reproduccion_repository.dart';
 import 'repositories/salud/api_evento_sanitario_repository.dart';
 import 'repositories/salud/evento_sanitario_repository.dart';
 import 'repositories/salud/mock_evento_sanitario_repository.dart';
+import 'repositories/ubicacion/api_ubicacion_repository.dart';
+import 'repositories/ubicacion/mock_ubicacion_repository.dart';
+import 'repositories/ubicacion/ubicacion_repository.dart';
+import 'repositories/usuarios/api_usuario_repository.dart';
+import 'repositories/usuarios/mock_usuario_repository.dart';
+import 'repositories/usuarios/usuario_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_shell.dart';
 
 Future<void> main() async {
   // Necesario antes de usar DateFormat con locale 'es' (fechas de
-  // Reproducción, Animales, Producción e Inventario) — sin esto,
+  // Reproducción, Animales, Producción e Inventario) -- sin esto,
   // DateFormat lanza LocaleDataException al primer build.
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es');
@@ -84,6 +90,14 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
           ? ApiEventoSanitarioRepository(client: _apiClient)
           : MockEventoSanitarioRepository();
 
+  late final UbicacionRepository _ubicacionRepository = AppConfig.useRealApi
+      ? ApiUbicacionRepository(client: _apiClient)
+      : MockUbicacionRepository();
+
+  late final UsuarioRepository _usuarioRepository = AppConfig.useRealApi
+      ? ApiUsuarioRepository(client: _apiClient)
+      : MockUsuarioRepository();
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +131,8 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
                   produccionRepository: _produccionRepository,
                   insumoRepository: _insumoRepository,
                   eventoSanitarioRepository: _eventoSanitarioRepository,
+                  ubicacionRepository: _ubicacionRepository,
+                  usuarioRepository: _usuarioRepository,
                   session: widget.session,
                 )
               : LoginScreen(

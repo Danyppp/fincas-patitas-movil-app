@@ -20,15 +20,26 @@ class MockCatalogoRepository implements CatalogoRepository {
     Raza(id: 4, especieId: 3, nombre: 'Leghorn'),
   ];
 
+  // 2026-11-05: `potreroId` ya no existe en LoteAnimal -- Lote y Potrero
+  // quedaron independientes (ver decisiones-diseno-vs-backend-ubicacion.md,
+  // secciones 1-2). Estos datos de prueba solo se quitaron ese campo.
   final _lotes = const [
-    LoteAnimal(id: 1, nombre: 'Lote Lechero 1', potreroId: 1),
-    LoteAnimal(id: 2, nombre: 'Lote Maternidad', potreroId: 2),
+    LoteAnimal(id: 1, nombre: 'Lote Lechero 1'),
+    LoteAnimal(id: 2, nombre: 'Lote Maternidad'),
     LoteAnimal(id: 3, nombre: 'Lote Engorde'),
   ];
 
   final _potreros = const [
-    Potrero(id: 1, nombre: 'Potrero Norte', capacidadAnimales: 20, estado: 'Disponible'),
-    Potrero(id: 2, nombre: 'Potrero Sur', capacidadAnimales: 15, estado: 'Disponible'),
+    Potrero(
+        id: 1,
+        nombre: 'Potrero Norte',
+        capacidadAnimales: 20,
+        estado: 'Disponible'),
+    Potrero(
+        id: 2,
+        nombre: 'Potrero Sur',
+        capacidadAnimales: 15,
+        estado: 'Disponible'),
   ];
 
   final _categoriasBodega = const [
