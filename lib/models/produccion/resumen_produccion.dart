@@ -116,10 +116,17 @@ class IndicadoresHuevos {
   final double promedioUnidadesPorRegistro;
   final int cantidadRegistros;
 
+  /// Desglose (2026-11-23, Etapa 9): huevos rotos y aprovechables
+  /// (producidos - rotos) del rango. Valen 0 si el backend no los envía.
+  final int totalRotos;
+  final int totalAprovechables;
+
   const IndicadoresHuevos({
     required this.totalUnidades,
     required this.promedioUnidadesPorRegistro,
     required this.cantidadRegistros,
+    this.totalRotos = 0,
+    this.totalAprovechables = 0,
   });
 
   factory IndicadoresHuevos.fromJson(Map<String, dynamic> json) {
@@ -128,6 +135,8 @@ class IndicadoresHuevos {
       promedioUnidadesPorRegistro:
           (json['promedio_unidades_por_registro'] as num?)?.toDouble() ?? 0,
       cantidadRegistros: (json['cantidad_registros'] as num?)?.toInt() ?? 0,
+      totalRotos: (json['total_rotos'] as num?)?.toInt() ?? 0,
+      totalAprovechables: (json['total_aprovechables'] as num?)?.toInt() ?? 0,
     );
   }
 }
