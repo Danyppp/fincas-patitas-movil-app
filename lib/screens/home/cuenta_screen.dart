@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/auth_session.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/financiera/financiera_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
 import '../../theme/app_theme.dart';
+import '../financiera/gastos_ventas_screen.dart';
 import '../salud/historial_salud_screen.dart';
 import '../ubicacion/ubicacion_inicio_screen.dart';
 
@@ -34,6 +36,7 @@ class CuentaScreen extends StatelessWidget {
   final UbicacionRepository ubicacionRepository;
   final AnimalRepository animalRepository;
   final UsuarioRepository usuarioRepository;
+  final FinancieraRepository financieraRepository;
 
   const CuentaScreen({
     super.key,
@@ -44,6 +47,7 @@ class CuentaScreen extends StatelessWidget {
     required this.ubicacionRepository,
     required this.animalRepository,
     required this.usuarioRepository,
+    required this.financieraRepository,
   });
 
   void _proximamente(BuildContext context, String seccion) {
@@ -155,6 +159,32 @@ class CuentaScreen extends StatelessWidget {
                       catalogoRepository: catalogoRepository,
                       insumoRepository: insumoRepository,
                       session: session,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ]),
+          const SizedBox(height: 22),
+
+          // -- Finanzas -- (2026-11-23: acceso al módulo Financiera; por
+          // ahora abre Gastos y Ventas, en la Etapa 5 pasará a abrir el
+          // Inicio de Finanzas)
+          _tituloSeccion('FINANZAS'),
+          const SizedBox(height: 8),
+          _grupoOpciones([
+            _opcion(
+              context,
+              icono: Icons.account_balance_wallet_outlined,
+              iconoFondo: const Color(0xFFFFF8E1),
+              iconoColor: const Color(0xFFF57F17),
+              titulo: 'Control financiero y balances',
+              subtitulo: 'Gastos, ventas, precios de mercado y balance',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => GastosVentasScreen(
+                      repository: financieraRepository,
                     ),
                   ),
                 );

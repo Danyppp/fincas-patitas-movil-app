@@ -14,6 +14,9 @@ import 'repositories/auth/mock_auth_repository.dart';
 import 'repositories/catalogo/api_catalogo_repository.dart';
 import 'repositories/catalogo/catalogo_repository.dart';
 import 'repositories/catalogo/mock_catalogo_repository.dart';
+import 'repositories/financiera/api_financiera_repository.dart';
+import 'repositories/financiera/financiera_repository.dart';
+import 'repositories/financiera/mock_financiera_repository.dart';
 import 'repositories/inventario/api_insumo_repository.dart';
 import 'repositories/inventario/insumo_repository.dart';
 import 'repositories/inventario/mock_insumo_repository.dart';
@@ -98,6 +101,10 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
       ? ApiUsuarioRepository(client: _apiClient)
       : MockUsuarioRepository();
 
+  late final FinancieraRepository _financieraRepository = AppConfig.useRealApi
+      ? ApiFinancieraRepository(client: _apiClient)
+      : MockFinancieraRepository();
+
   @override
   void initState() {
     super.initState();
@@ -133,6 +140,7 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
                   eventoSanitarioRepository: _eventoSanitarioRepository,
                   ubicacionRepository: _ubicacionRepository,
                   usuarioRepository: _usuarioRepository,
+                  financieraRepository: _financieraRepository,
                   session: widget.session,
                 )
               : LoginScreen(

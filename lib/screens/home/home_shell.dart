@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/auth_session.dart';
 import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
+import '../../repositories/financiera/financiera_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
@@ -33,6 +34,7 @@ class HomeShell extends StatefulWidget {
   final EventoSanitarioRepository eventoSanitarioRepository;
   final UbicacionRepository ubicacionRepository;
   final UsuarioRepository usuarioRepository;
+  final FinancieraRepository financieraRepository;
   final AuthSession session;
 
   const HomeShell({
@@ -45,6 +47,7 @@ class HomeShell extends StatefulWidget {
     required this.eventoSanitarioRepository,
     required this.ubicacionRepository,
     required this.usuarioRepository,
+    required this.financieraRepository,
     required this.session,
   });
 
@@ -90,6 +93,7 @@ class _HomeShellState extends State<HomeShell> {
         ubicacionRepository: widget.ubicacionRepository,
         animalRepository: widget.animalRepository,
         usuarioRepository: widget.usuarioRepository,
+        financieraRepository: widget.financieraRepository,
       ),
     ];
 
