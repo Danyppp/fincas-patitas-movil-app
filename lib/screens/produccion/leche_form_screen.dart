@@ -89,7 +89,12 @@ class _LecheFormScreenState extends State<LecheFormScreen> {
         final especie = (a.especie?.nombre ?? '').toLowerCase();
         return especie.contains('bov') || especie.contains('vaca');
       }).toList();
-      final lotes = await widget.catalogoRepository.listarLotes();
+      // Igual que con los animales: solo los lotes de vacas (bovinos)
+      // pueden registrar leche. Un lote sin especie no se ofrece.
+      final lotes = (await widget.catalogoRepository.listarLotes()).where((l) {
+        final especie = (l.especie?.nombre ?? '').toLowerCase();
+        return especie.contains('bov') || especie.contains('vaca');
+      }).toList();
       setState(() {
         _animales = vacas;
         _lotes = lotes;
