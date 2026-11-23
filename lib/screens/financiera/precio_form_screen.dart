@@ -7,6 +7,7 @@ import '../../models/financiera/precio_mercado.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
+import 'widgets_formulario.dart';
 
 /// Formulario para registrar o editar un precio de mercado.
 ///
@@ -173,6 +174,7 @@ class _PrecioFormScreenState extends State<PrecioFormScreen> {
         : _producto == _huevos
             ? 'unid.'
             : '';
+    final esHoy = FechaDia.soloDia(_fecha) == FechaDia.hoy();
 
     return Scaffold(
       appBar:
@@ -180,108 +182,135 @@ class _PrecioFormScreenState extends State<PrecioFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            _titulo('Producto'),
-            Wrap(
-              spacing: 8,
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.sell_outlined, color: AppTheme.secondary),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Define el valor unitario de venta: se usa para estimar la producción y como precio de las ventas.',
+                      style: TextStyle(
+                          fontSize: 12.5, color: AppTheme.onSurfaceVariant),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            FormTarjeta(
               children: [
-                ChoiceChip(
-                  avatar: const Icon(Icons.water_drop_outlined, size: 18),
-                  label: const Text(_leche),
-                  selected: _producto == _leche,
-                  onSelected: (_) => setState(() {
-                    _producto = _leche;
-                    _error = null;
-                  }),
+                const FormTitulo(
+                    icono: Icons.category_outlined,
+                    texto: 'Producto',
+                    etiqueta: 'Selecciona uno'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _tarjetaProducto(
+                          _leche, Icons.water_drop_outlined, 'Litro'),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _tarjetaProducto(
+                          _huevos, Icons.egg_outlined, 'Unidad'),
+                    ),
+                  ],
                 ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.egg_outlined, size: 18),
-                  label: const Text(_huevos),
-                  selected: _producto == _huevos,
-                  onSelected: (_) => setState(() {
-                    _producto = _huevos;
-                    _error = null;
-                  }),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.straighten,
+                    texto: 'Unidad de medida (automática)',
+                    etiqueta: 'Bloqueado'),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_outline,
+                          size: 19, color: AppTheme.onSurfaceVariant),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(unidadTexto,
+                            style: const TextStyle(
+                                fontSize: 14.5, fontWeight: FontWeight.w600)),
+                      ),
+                      const Text('Fija',
+                          style: TextStyle(
+                              fontSize: 12.5, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.payments_outlined,
+                    texto: 'Precio de referencia',
+                    etiqueta: 'COP',
+                    etiquetaDestacada: true),
+                TextFormField(
+                  controller: _precioCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800),
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    prefixText: '\$ ',
+                    prefixStyle: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primary),
+                    suffixText: unidadCorta.isEmpty ? 'COP' : '/ $unidadCorta',
+                    helperText:
+                        'Valor en pesos colombianos, sin puntos ni comas',
+                  ),
+                  validator: (v) {
+                    final valor = int.tryParse((v ?? '').trim());
+                    if (valor == null || valor <= 0) {
+                      return 'El precio debe ser mayor a 0';
+                    }
+                    if (valor > _precioMaximo) {
+                      return 'El precio es demasiado alto';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.calendar_today_outlined,
+                    texto: 'Fecha de vigencia'),
+                FormSelector(
+                  icono: Icons.event_outlined,
+                  etiquetaSuperior: esHoy ? 'A partir de hoy' : 'A partir del',
+                  texto: DateFormat("d 'de' MMMM, yyyy", 'es').format(_fecha),
+                  onTap: _elegirFecha,
+                ),
+                FormAyuda(
+                    'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}'),
               ],
-            ),
-            const SizedBox(height: 20),
-            _titulo('Unidad de medida (automática)'),
-            InputDecorator(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
-              child: Text(unidadTexto,
-                  style: const TextStyle(color: AppTheme.onSurfaceVariant)),
-            ),
-            const SizedBox(height: 20),
-            _titulo('Precio de referencia'),
-            TextFormField(
-              controller: _precioCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                hintText: '0',
-                prefixText: '\$ ',
-                suffixText: unidadCorta.isEmpty ? 'COP' : 'COP / $unidadCorta',
-                helperText: 'Valor en pesos colombianos, sin puntos ni comas',
-              ),
-              validator: (v) {
-                final valor = int.tryParse((v ?? '').trim());
-                if (valor == null || valor <= 0) {
-                  return 'El precio debe ser mayor a 0';
-                }
-                if (valor > _precioMaximo) return 'El precio es demasiado alto';
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            _titulo('Fecha de vigencia'),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-              onTap: _elegirFecha,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                  suffixIcon: Icon(Icons.edit_calendar_outlined),
-                ),
-                child:
-                    Text(DateFormat("d 'de' MMMM, yyyy", 'es').format(_fecha)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 6),
-              child: Text(
-                'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.outline),
-              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(_error!, style: const TextStyle(color: AppTheme.error)),
             ],
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _guardando ? null : _guardar,
-              icon: _guardando
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.check_circle_outline),
-              label: const Text('Guardar precio'),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed:
-                    _guardando ? null : () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
+            const SizedBox(height: 20),
+            FormBotones(
+              textoGuardar: 'Guardar precio',
+              guardando: _guardando,
+              onGuardar: _guardar,
+              onCancelar: () => Navigator.of(context).pop(false),
             ),
           ],
         ),
@@ -289,14 +318,41 @@ class _PrecioFormScreenState extends State<PrecioFormScreen> {
     );
   }
 
-  Widget _titulo(String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(texto,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.onSurfaceVariant)),
+  /// Tarjeta grande para elegir el producto (Leche o Huevos).
+  Widget _tarjetaProducto(String producto, IconData icono, String unidad) {
+    final activo = _producto == producto;
+    return Material(
+      color: activo ? const Color(0xFFE8F5E9) : AppTheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        onTap: () => setState(() {
+          _producto = producto;
+          _error = null;
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+            border: Border.all(
+                color: activo ? AppTheme.primaryContainer : Colors.transparent,
+                width: 1.5),
+          ),
+          child: Column(
+            children: [
+              Icon(icono,
+                  color: activo ? AppTheme.primary : AppTheme.onSurfaceVariant),
+              const SizedBox(height: 6),
+              Text(producto,
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w800)),
+              Text(unidad,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppTheme.outline)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

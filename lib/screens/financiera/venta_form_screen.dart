@@ -9,6 +9,7 @@ import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
+import 'widgets_formulario.dart';
 
 /// Formulario para registrar o editar una venta (módulo Financiera).
 ///
@@ -350,6 +351,13 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     return 'Precio de mercado vigente desde ${DateFormat('d MMM yyyy', 'es').format(vigente.fecha)} (no editable)';
   }
 
+  /// Suma o resta [delta] a la cantidad escrita (nunca menos de 0).
+  void _ajustarCantidad(double delta) {
+    final actual = _cantidad ?? 0;
+    final nueva = (actual + delta) < 0 ? 0.0 : actual + delta;
+    setState(() => _cantidadCtrl.text = _textoCantidad(nueva));
+  }
+
   // ── Pantalla ──────────────────────────────────────────────────────────
 
   @override
@@ -364,216 +372,249 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            _titulo('Producto a vender'),
-            Wrap(
-              spacing: 8,
+            FormTarjeta(
               children: [
-                ChoiceChip(
-                  avatar: const Icon(Icons.egg_outlined, size: 18),
-                  label: const Text(_huevos),
-                  selected: _producto == _huevos,
-                  onSelected: (_) => _elegirProducto(_huevos),
+                const FormTitulo(
+                    icono: Icons.sell_outlined,
+                    texto: 'Producto a vender',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FormChip(
+                      texto: _huevos,
+                      icono: Icons.egg_outlined,
+                      seleccionado: _producto == _huevos,
+                      onTap: () => _elegirProducto(_huevos),
+                    ),
+                    FormChip(
+                      texto: _leche,
+                      icono: Icons.water_drop_outlined,
+                      seleccionado: _producto == _leche,
+                      onTap: () => _elegirProducto(_leche),
+                    ),
+                  ],
                 ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.water_drop_outlined, size: 18),
-                  label: const Text(_leche),
-                  selected: _producto == _leche,
-                  onSelected: (_) => _elegirProducto(_leche),
-                ),
-              ],
-            ),
-            if (_esEdicion && _producto == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Esta venta tiene el producto "${widget.venta!.producto}", que ya no está disponible. Elige Huevos o Leche.',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.error),
-                ),
-              ),
-            const SizedBox(height: 20),
-            _titulo(unidad.isEmpty
-                ? 'Cantidad vendida'
-                : 'Cantidad vendida ($unidad)'),
-            TextFormField(
-              controller: _cantidadCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              decoration: InputDecoration(
-                hintText: '0',
-                suffixText: unidad.isEmpty ? null : unidad,
-              ),
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                final valor =
-                    double.tryParse((v ?? '').trim().replaceAll(',', '.'));
-                if (valor == null || valor <= 0) {
-                  return 'La cantidad debe ser mayor a 0';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            _titulo('Precio unitario'),
-            TextFormField(
-              controller: _precioCtrl,
-              readOnly: true,
-              enableInteractiveSelection: false,
-              decoration: InputDecoration(
-                hintText: '0',
-                prefixText: '\$ ',
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixText: unidad.isEmpty ? 'COP' : 'COP / $unidad',
-                helperText: _ayudaPrecio(),
-              ),
-              validator: (_) {
-                if (_producto == null) return 'Selecciona primero el producto';
-                final valor = _precioValor;
-                if (valor == null || valor <= 0) {
-                  return 'No hay precio de mercado para $_producto. Regístralo en Precios de mercado';
-                }
-                final t = _total;
-                if (t != null && t > _maxTotal) {
-                  return 'El total es demasiado alto';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                border: Border.all(color: AppTheme.outlineVariant),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long_outlined,
-                      color: AppTheme.primary),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Total estimado',
-                            style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w700)),
-                        Text('El total final lo calcula el sistema',
-                            style: TextStyle(
-                                fontSize: 11.5, color: AppTheme.outline)),
-                      ],
+                if (_esEdicion && _producto == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Esta venta tiene el producto "${widget.venta!.producto}", que ya no está disponible. Elige Huevos o Leche.',
+                      style:
+                          const TextStyle(fontSize: 12, color: AppTheme.error),
                     ),
                   ),
-                  Text(
-                    total == null ? '\$ 0' : FormatoCOP.pesos(total),
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.primary),
+                const SizedBox(height: 22),
+                FormTitulo(
+                    icono: Icons.scale_outlined,
+                    texto: unidad.isEmpty
+                        ? 'Cantidad vendida'
+                        : 'Cantidad vendida ($unidad)',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                Row(
+                  children: [
+                    _botonCantidad(
+                        Icons.remove,
+                        'Restar uno',
+                        (_cantidad ?? 0) > 0
+                            ? () => _ajustarCantidad(-1)
+                            : null),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cantidadCtrl,
+                        textAlign: TextAlign.center,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                        ],
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w800),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          suffixText: unidad.isEmpty ? null : unidad,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (v) {
+                          final valor = double.tryParse(
+                              (v ?? '').trim().replaceAll(',', '.'));
+                          if (valor == null || valor <= 0) {
+                            return 'La cantidad debe ser mayor a 0';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _botonCantidad(
+                        Icons.add, 'Sumar uno', () => _ajustarCantidad(1)),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.payments_outlined,
+                    texto: 'Precio unitario',
+                    etiqueta: 'Bloqueado'),
+                TextFormField(
+                  controller: _precioCtrl,
+                  readOnly: true,
+                  enableInteractiveSelection: false,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800),
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    prefixText: '\$ ',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixText: unidad.isEmpty ? 'COP' : 'COP / $unidad',
+                    helperText: _ayudaPrecio(),
+                    helperMaxLines: 3,
+                    errorMaxLines: 3,
                   ),
+                  validator: (_) {
+                    if (_producto == null) {
+                      return 'Selecciona primero el producto';
+                    }
+                    final valor = _precioValor;
+                    if (valor == null || valor <= 0) {
+                      return 'No hay precio de mercado para $_producto. Regístralo en Precios de mercado';
+                    }
+                    final t = _total;
+                    if (t != null && t > _maxTotal) {
+                      return 'El total es demasiado alto';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.receipt_long_outlined,
+                              size: 18, color: AppTheme.primary),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text('Total estimado',
+                                style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryContainer
+                                  .withValues(alpha: 0.35),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusFull),
+                            ),
+                            child: const Text('Automático',
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.onPrimaryContainer)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        total == null ? '\$ 0' : FormatoCOP.pesos(total),
+                        style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.onPrimaryContainer),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('El total final lo calcula el sistema',
+                          style: TextStyle(
+                              fontSize: 12, color: AppTheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.storefront_outlined,
+                    texto: 'Comprador',
+                    etiqueta: 'Opcional'),
+                TextFormField(
+                  controller: _compradorCtrl,
+                  maxLength: _maxComprador,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Nombre del comprador',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const FormTitulo(
+                    icono: Icons.calendar_today_outlined,
+                    texto: 'Fecha de la venta'),
+                FormSelector(
+                  icono: Icons.event_outlined,
+                  texto: formatoFecha.format(_fecha),
+                  onTap: _elegirFecha,
+                ),
+                FormAyuda(
+                    'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}'),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.verified_outlined, texto: 'Estado del pago'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FormChip(
+                      texto: estadoPagado,
+                      icono: Icons.check_circle_outline,
+                      seleccionado: _estado == estadoPagado,
+                      onTap: () => setState(() => _estado = estadoPagado),
+                    ),
+                    FormChip(
+                      texto: estadoPendiente,
+                      icono: Icons.schedule,
+                      seleccionado: _estado == estadoPendiente,
+                      onTap: () => setState(() => _estado = estadoPendiente),
+                    ),
+                  ],
+                ),
+                if (_estado == estadoPendiente) ...[
+                  const SizedBox(height: 22),
+                  const FormTitulo(
+                      icono: Icons.event_outlined,
+                      texto: 'Fecha límite de pago'),
+                  FormSelector(
+                    icono: Icons.event_outlined,
+                    texto: formatoFecha.format(_fechaLimite),
+                    onTap: _elegirFechaLimite,
+                  ),
+                  const FormAyuda(
+                      'Solo se puede elegir entre 1 y 7 días después de hoy'),
                 ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            _titulo('Comprador (opcional)'),
-            TextFormField(
-              controller: _compradorCtrl,
-              maxLength: _maxComprador,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                hintText: 'Nombre del comprador',
-                prefixIcon: Icon(Icons.storefront_outlined),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _titulo('Fecha de la venta'),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-              onTap: _elegirFecha,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                  suffixIcon: Icon(Icons.edit_calendar_outlined),
-                ),
-                child: Text(formatoFecha.format(_fecha)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 6),
-              child: Text(
-                'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.outline),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _titulo('Estado del pago'),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text(estadoPagado),
-                  selected: _estado == estadoPagado,
-                  onSelected: (_) => setState(() => _estado = estadoPagado),
-                ),
-                ChoiceChip(
-                  label: const Text(estadoPendiente),
-                  selected: _estado == estadoPendiente,
-                  onSelected: (_) => setState(() => _estado = estadoPendiente),
-                ),
               ],
             ),
-            if (_estado == estadoPendiente) ...[
-              const SizedBox(height: 16),
-              _titulo('Fecha límite de pago'),
-              InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-                onTap: _elegirFechaLimite,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.event_outlined),
-                    suffixIcon: Icon(Icons.edit_calendar_outlined),
-                  ),
-                  child: Text(formatoFecha.format(_fechaLimite)),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(left: 12, top: 6),
-                child: Text(
-                  'Solo se puede elegir entre 1 y 7 días después de hoy',
-                  style: TextStyle(fontSize: 12, color: AppTheme.outline),
-                ),
-              ),
-            ],
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(_error!, style: const TextStyle(color: AppTheme.error)),
             ],
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _guardando ? null : _guardar,
-              icon: _guardando
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.check_circle_outline),
-              label: const Text('Guardar venta'),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed:
-                    _guardando ? null : () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
+            const SizedBox(height: 20),
+            FormBotones(
+              textoGuardar: 'Guardar venta',
+              guardando: _guardando,
+              onGuardar: _guardar,
+              onCancelar: () => Navigator.of(context).pop(false),
             ),
           ],
         ),
@@ -581,14 +622,24 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     );
   }
 
-  Widget _titulo(String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(texto,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.onSurfaceVariant)),
+  /// Botón redondo de − / + junto a la cantidad.
+  Widget _botonCantidad(IconData icono, String tooltip, VoidCallback? onTap) {
+    return Material(
+      color: AppTheme.surfaceContainerColor,
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip,
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: Icon(icono,
+                color: onTap == null ? AppTheme.outline : AppTheme.onSurface),
+          ),
+        ),
+      ),
     );
   }
 }

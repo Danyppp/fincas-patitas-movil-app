@@ -189,19 +189,51 @@ class _BalanceScreenState extends State<BalanceScreen> {
         children: [
           _tarjetaEstimado(),
           const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text('Balances generados',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Row(
+              children: [
+                const Flexible(
+                  child: Text('Balances generados',
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  ),
+                  child: Text(
+                      _balances.length == 1
+                          ? '1 balance'
+                          : '${_balances.length} balances',
+                      style: const TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
           ),
           _buscador(),
           const SizedBox(height: 12),
           ..._listaBalances(),
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 8, 4, 0),
-            child: Text(
-              'Cada balance es una foto del momento en que se generó: no se recalcula si después cambian las ventas o los gastos.',
-              style: TextStyle(fontSize: 12, color: AppTheme.outline),
+            padding: EdgeInsets.fromLTRB(4, 12, 4, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: AppTheme.outline),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cada balance es una foto del momento en que se generó: no se recalcula si después cambian las ventas o los gastos.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.outline),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -383,12 +415,24 @@ class _BalanceScreenState extends State<BalanceScreen> {
     final e = _estimado;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _decoracionTarjeta,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Valor estimado de la producción de hoy',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+          const Row(
+            children: [
+              Expanded(
+                child: Text('Valor estimado de la producción de hoy',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.eco_outlined, color: AppTheme.primary),
+            ],
+          ),
           const SizedBox(height: 12),
           if (e == null)
             Text(
@@ -396,20 +440,39 @@ class _BalanceScreenState extends State<BalanceScreen> {
               style: const TextStyle(color: AppTheme.error, fontSize: 13),
             )
           else ...[
-            _filaProducto(
-              icono: Icons.water_drop_outlined,
-              nombre: 'Leche',
-              cantidad: '${FormatoCOP.cantidad(e.litrosHoy)} L',
-              valor: e.valorLeche,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+              ),
+              child: Column(
+                children: [
+                  _filaProducto(
+                    icono: Icons.water_drop_outlined,
+                    colorIcono: AppTheme.primary,
+                    fondoIcono: const Color(0xFFB7F0B5),
+                    nombre: 'Leche',
+                    cantidad: '${FormatoCOP.cantidad(e.litrosHoy)} L',
+                    precio: e.precioLeche?.precio,
+                    valor: e.valorLeche,
+                  ),
+                  const Divider(height: 22),
+                  _filaProducto(
+                    icono: Icons.egg_outlined,
+                    colorIcono: AppTheme.secondary,
+                    fondoIcono: const Color(0xFFFFE9B0),
+                    nombre: 'Huevos',
+                    cantidad:
+                        '${FormatoCOP.cantidad(e.huevosHoy.toDouble())} unid.',
+                    precio: e.precioHuevos?.precio,
+                    valor: e.valorHuevos,
+                    nota: '(los huevos rotos no cuentan)',
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            _filaProducto(
-              icono: Icons.egg_outlined,
-              nombre: 'Huevos',
-              cantidad: '${FormatoCOP.cantidad(e.huevosHoy.toDouble())} unid.',
-              valor: e.valorHuevos,
-            ),
-            const Divider(height: 24),
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -418,15 +481,26 @@ class _BalanceScreenState extends State<BalanceScreen> {
                         TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 Text(FormatoCOP.pesos(e.total),
                     style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 26,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.primary)),
               ],
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Es una estimación con el último precio de mercado; no es una venta.',
-              style: TextStyle(fontSize: 12, color: AppTheme.outline),
+            const SizedBox(height: 8),
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline,
+                    size: 16, color: AppTheme.onSurfaceVariant),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Es una estimación con los registros de hoy y el último precio de cada producto. No es una venta.',
+                    style: TextStyle(
+                        fontSize: 12, color: AppTheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -436,9 +510,13 @@ class _BalanceScreenState extends State<BalanceScreen> {
 
   Widget _filaProducto({
     required IconData icono,
+    required Color colorIcono,
+    required Color fondoIcono,
     required String nombre,
     required String cantidad,
+    required double? precio,
     required double? valor,
+    String? nota,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,11 +524,8 @@ class _BalanceScreenState extends State<BalanceScreen> {
         Container(
           width: 38,
           height: 38,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF0F7ED),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icono, color: AppTheme.primary, size: 19),
+          decoration: BoxDecoration(color: fondoIcono, shape: BoxShape.circle),
+          child: Icon(icono, color: colorIcono, size: 19),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -459,23 +534,33 @@ class _BalanceScreenState extends State<BalanceScreen> {
             children: [
               Text(nombre,
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700)),
+                      fontSize: 14.5, fontWeight: FontWeight.w700)),
+              if (nota != null)
+                Text(nota,
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontStyle: FontStyle.italic,
+                        color: AppTheme.onSurfaceVariant)),
               if (valor == null)
                 Text(
                   '$cantidad, pero no hay un precio de mercado registrado para $nombre.',
                   style: const TextStyle(fontSize: 12, color: AppTheme.outline),
-                )
-              else
-                Text(cantidad,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTheme.outline)),
+                ),
             ],
           ),
         ),
-        if (valor != null)
-          Text(FormatoCOP.pesos(valor),
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        if (valor != null && precio != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$cantidad × ${FormatoCOP.pesos(precio)}',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.onSurfaceVariant)),
+              Text(FormatoCOP.pesos(valor),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800)),
+            ],
+          ),
       ],
     );
   }
@@ -501,6 +586,18 @@ class _BalanceScreenState extends State<BalanceScreen> {
   Widget _tarjetaBalance(Balance b) {
     final estado = b.estado();
     final negativo = b.balanceNeto < 0;
+    final IconData icono;
+    switch (estado) {
+      case EstadoBalance.enCurso:
+        icono = Icons.calendar_month_outlined;
+        break;
+      case EstadoBalance.cerrado:
+        icono = Icons.event_available_outlined;
+        break;
+      case EstadoBalance.sinRango:
+        icono = Icons.calendar_today_outlined;
+        break;
+    }
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: _decoracionTarjeta,
@@ -509,30 +606,40 @@ class _BalanceScreenState extends State<BalanceScreen> {
         children: [
           Row(
             children: [
+              Icon(icono, size: 20, color: AppTheme.primary),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(_rango(b),
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w700)),
+                        fontSize: 14.5, fontWeight: FontWeight.w800)),
               ),
               if (estado != EstadoBalance.sinRango)
                 _pastilla(estado == EstadoBalance.enCurso),
             ],
           ),
-          const SizedBox(height: 10),
-          _fila('Ventas', FormatoCOP.pesos(b.totalVentas)),
-          const SizedBox(height: 4),
-          _fila('Gastos', FormatoCOP.pesos(b.totalGastos)),
-          const Divider(height: 18),
+          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Neto',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-              Text(_conSigno(b.balanceNeto),
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: negativo ? AppTheme.error : AppTheme.primary)),
+              Expanded(
+                child: _cajaMonto('Ventas', FormatoCOP.pesos(b.totalVentas),
+                    AppTheme.primary, AppTheme.surfaceContainerLow),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _cajaMonto('Gastos', FormatoCOP.pesos(b.totalGastos),
+                    AppTheme.tertiary, AppTheme.surfaceContainerLow),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _cajaMonto(
+                    'Neto',
+                    _conSigno(b.balanceNeto),
+                    negativo ? AppTheme.error : AppTheme.secondary,
+                    negativo
+                        ? AppTheme.errorContainer.withValues(alpha: 0.5)
+                        : const Color(0xFFFFF3E6)),
+              ),
             ],
           ),
         ],
@@ -540,15 +647,42 @@ class _BalanceScreenState extends State<BalanceScreen> {
     );
   }
 
-  Widget _fila(String etiqueta, String valor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(etiqueta,
-            style: const TextStyle(fontSize: 13, color: AppTheme.outline)),
-        Text(valor,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      ],
+  Widget _cajaMonto(String etiqueta, String valor, Color color, Color fondo) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: fondo,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm * 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(etiqueta,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppTheme.onSurfaceVariant)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(valor,
+                style: TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w800, color: color)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -556,14 +690,17 @@ class _BalanceScreenState extends State<BalanceScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: enCurso ? const Color(0xFFFFF4D6) : const Color(0xFFE8F5E9),
+        color:
+            enCurso ? const Color(0xFFB7F0B5) : AppTheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppTheme.radiusFull),
       ),
-      child: Text(enCurso ? 'En curso' : 'Cerrado',
+      child: Text(enCurso ? 'EN CURSO' : 'Cerrado',
           style: TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: enCurso ? AppTheme.secondary : AppTheme.primary)),
+              fontWeight: FontWeight.w800,
+              color: enCurso
+                  ? AppTheme.onPrimaryContainer
+                  : AppTheme.onSurfaceVariant)),
     );
   }
 }

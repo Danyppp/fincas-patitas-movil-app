@@ -7,6 +7,7 @@ import '../../models/financiera/gasto.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
+import 'widgets_formulario.dart';
 
 /// Formulario para registrar o editar un gasto (módulo Financiera).
 ///
@@ -171,6 +172,19 @@ class _GastoFormScreenState extends State<GastoFormScreen> {
     }
   }
 
+  IconData _iconoCategoria(String categoria) {
+    switch (categoria) {
+      case 'Alimentación':
+        return Icons.restaurant_outlined;
+      case 'Medicamentos':
+        return Icons.medication_outlined;
+      case 'Mantenimiento':
+        return Icons.build_outlined;
+      default:
+        return Icons.engineering_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriaActual = _categoriaCtrl.text.trim().toLowerCase();
@@ -180,155 +194,152 @@ class _GastoFormScreenState extends State<GastoFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            _titulo('Categoría'),
-            TextFormField(
-              controller: _categoriaCtrl,
-              maxLength: _maxCategoria,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Ej. Alimentación',
-                prefixIcon: Icon(Icons.sell_outlined),
-              ),
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                final texto = (v ?? '').trim();
-                if (texto.isEmpty) return 'La categoría es obligatoria';
-                if (_categoriasNoPermitidas.contains(texto.toLowerCase())) {
-                  return 'Otro no está permitido, seleccione una o describa una opción real';
-                }
-                if (texto.length > _maxCategoria) {
-                  return 'Máximo $_maxCategoria caracteres';
-                }
-                return null;
-              },
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
+            FormTarjeta(
               children: [
-                for (final c in _categoriasSugeridas)
-                  ChoiceChip(
-                    label: Text(c),
-                    selected: categoriaActual == c.toLowerCase(),
-                    onSelected: (_) => setState(() => _categoriaCtrl.text = c),
+                const FormTitulo(
+                    icono: Icons.sell_outlined,
+                    texto: 'Categoría',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                TextFormField(
+                  controller: _categoriaCtrl,
+                  maxLength: _maxCategoria,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Ej. Alimentación',
                   ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _titulo('Monto'),
-            TextFormField(
-              controller: _montoCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                hintText: '0',
-                prefixText: '\$ ',
-                suffixText: 'COP',
-                helperText: 'Valor en pesos colombianos, sin puntos ni comas',
-              ),
-              validator: (v) {
-                final valor = int.tryParse((v ?? '').trim());
-                if (valor == null || valor <= 0) {
-                  return 'El monto debe ser mayor a 0';
-                }
-                if (valor > _montoMaximo) return 'El monto es demasiado alto';
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            _titulo('Fecha del registro'),
-            InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-              onTap: _elegirFecha,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                  suffixIcon: Icon(Icons.expand_more),
+                  onChanged: (_) => setState(() {}),
+                  validator: (v) {
+                    final texto = (v ?? '').trim();
+                    if (texto.isEmpty) return 'La categoría es obligatoria';
+                    if (_categoriasNoPermitidas.contains(texto.toLowerCase())) {
+                      return 'Otro no está permitido, seleccione una o describa una opción real';
+                    }
+                    if (texto.length > _maxCategoria) {
+                      return 'Máximo $_maxCategoria caracteres';
+                    }
+                    return null;
+                  },
                 ),
-                child:
-                    Text(DateFormat("d 'de' MMMM, yyyy", 'es').format(_fecha)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 6),
-              child: Text(
-                'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.outline),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _titulo('Descripción'),
-            TextFormField(
-              controller: _descripcionCtrl,
-              minLines: 2,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Detalle del gasto',
-                prefixIcon: Icon(Icons.description_outlined),
-              ),
-              validator: (v) => (v ?? '').trim().isEmpty
-                  ? 'La descripción es obligatoria'
-                  : null,
-            ),
-            const SizedBox(height: 20),
-            _titulo('Medio de pago'),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final m in metodosPagoValidos)
-                  ChoiceChip(
-                    label: Text(m),
-                    selected: _metodoPago == m,
-                    onSelected: (_) => setState(() {
-                      _metodoPago = m;
-                      _error = null;
-                    }),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final c in _categoriasSugeridas)
+                      FormChip(
+                        texto: c,
+                        icono: _iconoCategoria(c),
+                        seleccionado: categoriaActual == c.toLowerCase(),
+                        onTap: () => setState(() => _categoriaCtrl.text = c),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.payments_outlined,
+                    texto: 'Monto',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                TextFormField(
+                  controller: _montoCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800),
+                  decoration: const InputDecoration(
+                    hintText: '0',
+                    prefixText: '\$ ',
+                    prefixStyle: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primary),
+                    suffixText: 'COP',
+                    helperText:
+                        'Valor en pesos colombianos, sin puntos ni comas',
                   ),
+                  validator: (v) {
+                    final valor = int.tryParse((v ?? '').trim());
+                    if (valor == null || valor <= 0) {
+                      return 'El monto debe ser mayor a 0';
+                    }
+                    if (valor > _montoMaximo) {
+                      return 'El monto es demasiado alto';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.calendar_today_outlined,
+                    texto: 'Fecha del registro'),
+                FormSelector(
+                  icono: Icons.event_outlined,
+                  texto: DateFormat("d 'de' MMMM, yyyy", 'es').format(_fecha),
+                  iconoDerecho: Icons.expand_more,
+                  onTap: _elegirFecha,
+                ),
+                FormAyuda(
+                    'Solo días de ${toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_primerDia))}'),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.description_outlined,
+                    texto: 'Descripción',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                TextFormField(
+                  controller: _descripcionCtrl,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Detalle del gasto',
+                  ),
+                  validator: (v) => (v ?? '').trim().isEmpty
+                      ? 'La descripción es obligatoria'
+                      : null,
+                ),
+                const SizedBox(height: 22),
+                const FormTitulo(
+                    icono: Icons.account_balance_wallet_outlined,
+                    texto: 'Medio de pago',
+                    etiqueta: 'Requerido',
+                    etiquetaDestacada: true),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final m in metodosPagoValidos)
+                      FormChip(
+                        texto: m,
+                        icono: m == 'Efectivo'
+                            ? Icons.payments_outlined
+                            : Icons.swap_horiz,
+                        seleccionado: _metodoPago == m,
+                        onTap: () => setState(() {
+                          _metodoPago = m;
+                          _error = null;
+                        }),
+                      ),
+                  ],
+                ),
               ],
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(_error!, style: const TextStyle(color: AppTheme.error)),
             ],
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _guardando ? null : _guardar,
-              icon: _guardando
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.check_circle_outline),
-              label: const Text('Guardar gasto'),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed:
-                    _guardando ? null : () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
+            const SizedBox(height: 20),
+            FormBotones(
+              textoGuardar: 'Guardar gasto',
+              guardando: _guardando,
+              onGuardar: _guardar,
+              onCancelar: () => Navigator.of(context).pop(false),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _titulo(String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(texto,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.onSurfaceVariant)),
     );
   }
 }

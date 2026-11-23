@@ -210,6 +210,31 @@ class _PreciosMercadoScreenState extends State<PreciosMercadoScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+            child: Row(
+              children: [
+                const Flexible(
+                  child: Text('Precios registrados',
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  ),
+                  child: Text('${lista.length}',
+                      style: const TextStyle(
+                          fontSize: 11.5, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
             child: Text(
@@ -226,109 +251,112 @@ class _PreciosMercadoScreenState extends State<PreciosMercadoScreen> {
               ),
             )
           else
-            for (final p in lista) ...[
-              _filaPrecio(p, vigentes.contains(p.id)),
-              const SizedBox(height: 10),
-            ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              child: Column(
+                children: [
+                  for (var i = 0; i < lista.length; i++)
+                    _filaPrecio(lista[i], vigentes.contains(lista[i].id),
+                        resaltada: i.isEven),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _filaPrecio(PrecioMercado p, bool vigente) {
+  Widget _filaPrecio(PrecioMercado p, bool vigente, {required bool resaltada}) {
     final esLeche = _clave(p.producto) == 'leche';
     final unidad = FormatoCOP.unidadDeProducto(p.producto);
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 8),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.onSurface.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      color: resaltada
+          ? AppTheme.surfaceContainerLow
+          : AppTheme.surfaceContainerLowest,
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF0F7ED),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  esLeche ? Icons.water_drop_outlined : Icons.egg_outlined,
-                  color: AppTheme.primary,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            width: 46,
+            height: 46,
+            decoration: const BoxDecoration(
+              color: AppTheme.secondaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              esLeche ? Icons.water_drop_outlined : Icons.egg_outlined,
+              color: AppTheme.onSecondaryContainer,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(p.producto,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 14.5, fontWeight: FontWeight.w700)),
-                        ),
-                        if (vigente) ...[
-                          const SizedBox(width: 8),
-                          _pastillaVigente(),
-                        ],
-                      ],
-                    ),
-                    Text(
-                      'Desde ${DateFormat('d MMM yyyy', 'es').format(p.fecha)}',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTheme.outline),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(FormatoCOP.pesos(p.precio),
-                        style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w800)),
-                    if (unidad.isNotEmpty)
-                      Text('/ $unidad',
+                    Flexible(
+                      child: Text(p.producto,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 12, color: AppTheme.outline)),
+                              fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    ),
+                    if (vigente) ...[
+                      const SizedBox(width: 8),
+                      _pastillaVigente(),
+                    ],
                   ],
                 ),
-              ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(Icons.history,
+                        size: 14, color: AppTheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Actualizado: ${DateFormat('d MMM', 'es').format(p.fecha)}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(FormatoCOP.pesos(p.precio),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800)),
+              if (unidad.isNotEmpty)
+                Text('/ $unidad',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.onSurfaceVariant)),
             ],
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          const SizedBox(width: 4),
+          Column(
             children: [
               IconButton(
                 tooltip: 'Editar',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _abrirFormulario(p),
                 icon: const Icon(Icons.edit_outlined,
-                    size: 20, color: AppTheme.outline),
+                    size: 20, color: AppTheme.onSurfaceVariant),
               ),
               IconButton(
                 tooltip: 'Eliminar',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _eliminar(p),
                 icon: const Icon(Icons.delete_outline,
-                    size: 20, color: AppTheme.outline),
+                    size: 20, color: AppTheme.tertiary),
               ),
             ],
           ),

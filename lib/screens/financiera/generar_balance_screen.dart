@@ -10,6 +10,7 @@ import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
+import 'widgets_formulario.dart';
 
 /// Pantalla para generar un balance de un rango de fechas.
 ///
@@ -111,11 +112,30 @@ class _GenerarBalanceScreenState extends State<GenerarBalanceScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Balance duplicado'),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+        title: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                  color: Color(0xFFFFF3E6), shape: BoxShape.circle),
+              child: const Icon(Icons.warning_amber_rounded,
+                  color: AppTheme.secondary, size: 28),
+            ),
+            const SizedBox(height: 12),
+            const Text('Ya existe un balance para este periodo',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ],
+        ),
         content: const Text(
-            'Ya existe un balance con ese periodo. Si continúas, se guardará otro registro más. ¿Generarlo de todas formas?'),
+            'Si continúas, se guardará otro registro más. ¿Generarlo de todas formas?',
+            textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancelar'),
           ),
@@ -167,59 +187,82 @@ class _GenerarBalanceScreenState extends State<GenerarBalanceScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Generar balance')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          _titulo('Fecha inicial'),
-          _campoFecha(_inicio, () => _elegir(esInicio: true)),
-          const SizedBox(height: 20),
-          _titulo('Fecha final'),
-          _campoFecha(_fin, () => _elegir(esInicio: false)),
-          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.calculate_outlined, color: AppTheme.primary),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Cálculo del periodo',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800)),
+                      SizedBox(height: 4),
+                      Text(
+                        'Elige el rango de fechas. Se sumarán las ventas cobradas y los gastos de esos días.',
+                        style: TextStyle(
+                            fontSize: 13, color: AppTheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          FormTarjeta(
+            children: [
+              const FormTitulo(
+                  icono: Icons.event_outlined, texto: 'Fecha de inicio'),
+              FormSelector(
+                icono: Icons.calendar_today_outlined,
+                texto: _formato.format(_inicio),
+                iconoDerecho: Icons.edit_calendar_outlined,
+                onTap: () => _elegir(esInicio: true),
+              ),
+              const SizedBox(height: 18),
+              const FormTitulo(
+                  icono: Icons.event_available_outlined, texto: 'Fecha de fin'),
+              FormSelector(
+                icono: Icons.calendar_today_outlined,
+                texto: _formato.format(_fin),
+                iconoDerecho: Icons.edit_calendar_outlined,
+                onTap: () => _elegir(esInicio: false),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           _estimacion(),
           if (_error != null) ...[
             const SizedBox(height: 16),
             Text(_error!, style: const TextStyle(color: AppTheme.error)),
           ],
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: (_guardando || _cargando) ? null : _generar,
-            icon: _guardando
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.check_circle_outline),
-            label: const Text('Generar balance'),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed:
-                  _guardando ? null : () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
+          FormBotones(
+            textoGuardar: 'Generar balance',
+            guardando: _guardando,
+            onGuardar: () {
+              if (_cargando) return;
+              _generar();
+            },
+            onCancelar: () => Navigator.of(context).pop(false),
           ),
         ],
       ),
     );
   }
 
-  Widget _campoFecha(DateTime fecha, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
-      onTap: onTap,
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.calendar_today_outlined),
-          suffixIcon: Icon(Icons.edit_calendar_outlined),
-        ),
-        child: Text(DateFormat("d 'de' MMMM, yyyy", 'es').format(fecha)),
-      ),
-    );
-  }
+  static final DateFormat _formato = DateFormat("d 'de' MMMM, yyyy", 'es');
 
   Widget _estimacion() {
     if (_cargando) {
@@ -253,76 +296,81 @@ class _GenerarBalanceScreenState extends State<GenerarBalanceScreen> {
       fin: _fin,
     );
     final negativo = e.neto < 0;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.onSurface.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return FormTarjeta(
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Estimación preliminar',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              ),
+              child: Text(e.dias == 1 ? '1 DÍA' : '${e.dias} DÍAS',
+                  style: const TextStyle(
+                      fontSize: 11.5, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _fila('Ventas cobradas', FormatoCOP.pesos(e.ventas), AppTheme.primary),
+        const SizedBox(height: 8),
+        _fila('Gastos', FormatoCOP.pesos(e.gastos), AppTheme.tertiary),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: negativo
+                ? AppTheme.errorContainer.withValues(alpha: 0.5)
+                : const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Estimación previa',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          _fila('Días del periodo', '${e.dias}'),
-          const SizedBox(height: 4),
-          _fila('Ventas cobradas', FormatoCOP.pesos(e.ventas)),
-          const SizedBox(height: 4),
-          _fila('Gastos', FormatoCOP.pesos(e.gastos)),
-          const Divider(height: 18),
-          Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Neto',
+              const Text('Balance neto',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               Text(
                   negativo
                       ? '-${FormatoCOP.pesos(e.neto.abs())}'
                       : FormatoCOP.pesos(e.neto),
                   style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: negativo ? AppTheme.error : AppTheme.primary)),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Solo cuentan las ventas ya pagadas (por su fecha de pago) y los gastos del rango. El valor final lo calcula el servidor al generar.',
-            style: TextStyle(fontSize: 12, color: AppTheme.outline),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _fila(String etiqueta, String valor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(etiqueta,
-            style: const TextStyle(fontSize: 13, color: AppTheme.outline)),
-        Text(valor,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Solo cuentan las ventas ya pagadas (por su fecha de pago) y los gastos del rango. El valor final lo calcula el servidor al generar.',
+          style: TextStyle(fontSize: 12, color: AppTheme.outline),
+        ),
       ],
     );
   }
 
-  Widget _titulo(String texto) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(texto,
-          style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.onSurfaceVariant)),
+  Widget _fila(String etiqueta, String valor, Color punto) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: punto, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(etiqueta,
+              style: const TextStyle(
+                  fontSize: 13.5, color: AppTheme.onSurfaceVariant)),
+        ),
+        Text(valor,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+      ],
     );
   }
 }

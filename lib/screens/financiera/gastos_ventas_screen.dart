@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/financiera/gasto.dart';
+import '../../models/financiera/resumen_mes.dart';
 import '../../models/financiera/venta.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
@@ -109,19 +110,8 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   List<Gasto> get _gastosDelMes =>
       _gastos.where((g) => _enMes(g.fecha)).toList();
 
-  /// Ventas pagadas cuya fecha de pago cae en el mes (si una venta pagada
-  /// no trae fecha de pago, se usa la fecha de la venta).
-  double get _totalVentasCobradas {
-    var suma = 0.0;
-    for (final v in _ventas) {
-      if (!v.estaPagada) continue;
-      if (_enMes(v.fechaPago ?? v.fecha)) suma += v.total;
-    }
-    return suma;
-  }
-
-  double get _totalGastos =>
-      _gastosDelMes.fold(0.0, (suma, g) => suma + g.monto);
+  ResumenMes get _resumen =>
+      ResumenMes.calcular(ventas: _ventas, gastos: _gastos, mes: _mes);
 
   List<Venta> get _ventasPendientes =>
       _ventas.where((v) => v.estaPendiente).toList();
@@ -256,7 +246,7 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Financiera'),
+        title: const Text('Gastos y ventas'),
       ),
       body: _cuerpo(),
       floatingActionButton: (_cargando || _error != null)
@@ -295,10 +285,8 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
       );
     }
 
-    final ventasCobradas = _totalVentasCobradas;
-    final gastos = _totalGastos;
-    final pendientes = _ventasPendientes;
-    final porCobrar = pendientes.fold(0.0, (suma, v) => suma + v.total);
+    final r = _resumen;
+    final margen = r.margenPorcentaje;
 
     return RefreshIndicator(
       onRefresh: () => _cargar(silencioso: true),
@@ -306,8 +294,6 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
-          _selectorMes(),
-          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -316,57 +302,56 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
                   icono: Icons.trending_up,
                   color: AppTheme.primary,
                   titulo: 'Ventas',
-                  valor: FormatoCOP.pesos(ventasCobradas),
-                  detalle: pendientes.isEmpty
-                      ? 'Cobradas'
-                      : '${pendientes.length} por cobrar · ${FormatoCOP.pesos(porCobrar)}',
+                  valor: FormatoCOP.pesos(r.ventasCobradas),
+                  detalle: 'Cobradas',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _tarjetaResumen(
                   icono: Icons.trending_down,
-                  color: AppTheme.tertiary,
+                  color: AppTheme.tertiaryContainer,
                   titulo: 'Gastos',
-                  valor: FormatoCOP.pesos(gastos),
-                  detalle: _gastosDelMes.length == 1
+                  valor: FormatoCOP.pesos(r.gastos),
+                  detalle: r.cantidadGastos == 1
                       ? '1 registro'
-                      : '${_gastosDelMes.length} registros',
+                      : '${r.cantidadGastos} registros',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _tarjetaResumen(
+                  icono: Icons.account_balance_wallet_outlined,
+                  color:
+                      r.diferencia >= 0 ? AppTheme.secondary : AppTheme.error,
+                  titulo: 'Diferencia',
+                  valor: FormatoCOP.pesos(r.diferencia),
+                  detalle: margen == null
+                      ? 'Sin ventas cobradas'
+                      : '${margen.round()}% margen',
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _tarjetaResumen(
-            icono: Icons.savings_outlined,
-            color: ventasCobradas - gastos >= 0
-                ? AppTheme.primary
-                : AppTheme.error,
-            titulo: 'Balance',
-            valor: FormatoCOP.pesos(ventasCobradas - gastos),
-            detalle: 'Ventas cobradas - gastos del mes',
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<int>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
-                    value: 0,
-                    icon: Icon(Icons.payments_outlined),
-                    label: Text('Gastos')),
-                ButtonSegment(
-                    value: 1,
-                    icon: Icon(Icons.sell_outlined),
-                    label: Text('Ventas')),
-              ],
-              selected: {_pestana},
-              onSelectionChanged: (s) => setState(() => _pestana = s.first),
+          if (r.ventasPorCobrar > 0) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                '${r.ventasPorCobrar} ${r.ventasPorCobrar == 1 ? 'venta por cobrar' : 'ventas por cobrar'} · ${FormatoCOP.pesos(r.montoPorCobrar)}',
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.secondary),
+              ),
             ),
-          ),
+          ],
+          const SizedBox(height: 12),
+          _selectorMes(),
+          const SizedBox(height: 12),
+          _pestanas(),
           const SizedBox(height: 16),
-          if (_pestana == 0) ..._listaGastos() else ..._listaVentas(),
+          if (_pestana == 0) ..._listaGastos(r) else ..._listaVentas(),
         ],
       ),
     );
@@ -375,30 +360,96 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   Widget _selectorMes() {
     final etiqueta =
         toBeginningOfSentenceCase(DateFormat('MMMM yyyy', 'es').format(_mes));
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          tooltip: 'Mes anterior',
-          onPressed: () => _cambiarMes(-1),
-          icon: const Icon(Icons.chevron_left),
-        ),
-        Column(
-          children: [
-            Text(etiqueta,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Mes anterior',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _cambiarMes(-1),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          const Icon(Icons.calendar_month_outlined,
+              size: 18, color: AppTheme.secondary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(etiqueta,
                 style:
-                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-            if (_esMesActual)
-              const Text('Mes en curso',
-                  style: TextStyle(fontSize: 12, color: AppTheme.outline)),
-          ],
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+          if (_esMesActual)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              ),
+              child: const Text('Mes en curso',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.onSurfaceVariant)),
+            ),
+          IconButton(
+            tooltip: 'Mes siguiente',
+            visualDensity: VisualDensity.compact,
+            onPressed: _esMesActual ? null : () => _cambiarMes(1),
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pestanas() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _botonPestana(0, Icons.payments_outlined, 'Gastos')),
+          const SizedBox(width: 4),
+          Expanded(child: _botonPestana(1, Icons.sell_outlined, 'Ventas')),
+        ],
+      ),
+    );
+  }
+
+  Widget _botonPestana(int indice, IconData icono, String texto) {
+    final activa = _pestana == indice;
+    return Material(
+      color:
+          activa ? AppTheme.primaryContainer : AppTheme.surfaceContainerColor,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm * 1.5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm * 1.5),
+        onTap: () => setState(() => _pestana = indice),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(activa ? Icons.check : icono,
+                  size: 18,
+                  color: activa ? AppTheme.onPrimary : AppTheme.onSurface),
+              const SizedBox(width: 8),
+              Text(texto,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: activa ? AppTheme.onPrimary : AppTheme.onSurface)),
+            ],
+          ),
         ),
-        IconButton(
-          tooltip: 'Mes siguiente',
-          onPressed: _esMesActual ? null : () => _cambiarMes(1),
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+      ),
     );
   }
 
@@ -411,33 +462,61 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: _decoracionTarjeta(),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.onSurface.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icono, color: color, size: 20),
-              const SizedBox(width: 6),
-              Text(titulo,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.onSurfaceVariant)),
+              Flexible(
+                child: Text(titulo.toUpperCase(),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: AppTheme.onSurfaceVariant)),
+              ),
+              Icon(icono, color: color, size: 16),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(valor,
                 style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+                    fontSize: 17, fontWeight: FontWeight.w800, color: color)),
           ),
           const SizedBox(height: 4),
-          Text(detalle,
-              style: const TextStyle(fontSize: 11.5, color: AppTheme.outline)),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(detalle,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: AppTheme.onSurfaceVariant)),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -446,7 +525,7 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   BoxDecoration _decoracionTarjeta() {
     return BoxDecoration(
       color: AppTheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
       boxShadow: [
         BoxShadow(
           color: AppTheme.onSurface.withValues(alpha: 0.05),
@@ -457,19 +536,89 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
     );
   }
 
+  Widget _encabezadoLista(String titulo, String contador) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Row(
+        children: [
+          Flexible(
+            child: Text(titulo,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            ),
+            child: Text(contador,
+                style: const TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Gastos ────────────────────────────────────────────────────────────
 
-  List<Widget> _listaGastos() {
+  List<Widget> _listaGastos(ResumenMes resumen) {
     final lista = _gastosDelMes;
     if (lista.isEmpty) {
       return [_vacio('No hay gastos registrados en este mes')];
     }
+    final proporcion = resumen.gastosSobreIngresos;
     return [
-      for (final g in lista) ...[
-        _filaGasto(g),
-        const SizedBox(height: 10),
+      _encabezadoLista('Historial de gastos',
+          lista.length == 1 ? '1 registro' : '${lista.length} registros'),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        child: Column(
+          children: [
+            for (var i = 0; i < lista.length; i++)
+              _filaGasto(lista[i], resaltada: i.isEven),
+          ],
+        ),
+      ),
+      if (proporcion != null) ...[
+        const SizedBox(height: 16),
+        _nota(
+            'Los gastos representan un ${proporcion.round()}% de los ingresos cobrados de este mes.'),
       ],
     ];
+  }
+
+  Widget _nota(String texto) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF3CD),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.lightbulb_outline,
+                size: 19, color: AppTheme.secondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(texto,
+                style:
+                    const TextStyle(fontSize: 12.5, color: AppTheme.onSurface)),
+          ),
+        ],
+      ),
+    );
   }
 
   IconData _iconoCategoria(String categoria) {
@@ -488,33 +637,48 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
     }
   }
 
-  Widget _filaGasto(Gasto g) {
+  Widget _filaGasto(Gasto g, {required bool resaltada}) {
     final fecha = DateFormat('d MMM', 'es').format(g.fecha);
-    final partes = [fecha, if (g.metodoPago != null) g.metodoPago!];
     return Container(
+      color: resaltada
+          ? AppTheme.surfaceContainerLow
+          : AppTheme.surfaceContainerLowest,
       padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-      decoration: _decoracionTarjeta(),
       child: Row(
         children: [
-          _iconoCircular(_iconoCategoria(g.categoria), AppTheme.tertiary,
-              const Color(0xFFFFEDEA)),
+          _iconoCircular(
+              _iconoCategoria(g.categoria),
+              AppTheme.tertiaryContainer,
+              AppTheme.tertiaryContainer.withValues(alpha: 0.15)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(g.categoria,
-                    style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w700)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(g.categoria,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(fecha,
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.onSurfaceVariant)),
+                  ],
+                ),
                 if (g.descripcion != null && g.descripcion!.trim().isNotEmpty)
                   Text(g.descripcion!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
-                Text(partes.join(' · '),
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTheme.outline)),
+                if (g.metodoPago != null)
+                  Text(g.metodoPago!,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.outline)),
               ],
             ),
           ),
@@ -548,6 +712,8 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   List<Widget> _listaVentas() {
     final lista = _ventasVisibles;
     return [
+      _encabezadoLista('Registros recientes',
+          lista.length == 1 ? '1 venta' : '${lista.length} ventas'),
       Wrap(
         spacing: 8,
         children: [
@@ -565,8 +731,8 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
             ? 'No hay ventas pendientes de pago'
             : 'No hay ventas registradas en este mes')
       else
-        for (final v in lista) ...[
-          _filaVenta(v),
+        for (var i = 0; i < lista.length; i++) ...[
+          _filaVenta(lista[i]),
           const SizedBox(height: 10),
         ],
     ];
@@ -582,6 +748,8 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
         return 'Pendientes';
     }
   }
+
+  bool _esLeche(String producto) => producto.toLowerCase().contains('leche');
 
   IconData _iconoProducto(String producto) {
     final p = producto.toLowerCase();
@@ -607,6 +775,12 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
           : 'Vence el ${DateFormat('d MMM', 'es').format(v.fechaLimitePago!)}';
     }
 
+    final colorProducto =
+        _esLeche(v.producto) ? AppTheme.primary : AppTheme.secondary;
+    final fondoProducto = _esLeche(v.producto)
+        ? const Color(0xFFE3F1E4)
+        : const Color(0xFFFFE9B0);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 6, 8),
       decoration: _decoracionTarjeta(),
@@ -615,42 +789,55 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
         children: [
           Row(
             children: [
-              _iconoCircular(_iconoProducto(v.producto), AppTheme.primary,
-                  const Color(0xFFF0F7ED)),
+              _iconoCircular(
+                  _iconoProducto(v.producto), colorProducto, fondoProducto),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(v.producto,
-                        style: const TextStyle(
-                            fontSize: 14.5, fontWeight: FontWeight.w700)),
-                    Text(detalleCantidad,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: AppTheme.onSurfaceVariant)),
+                    Row(
+                      children: [
+                        Text(v.producto,
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.tertiaryContainer
+                                  .withValues(alpha: 0.15),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusFull),
+                            ),
+                            child: Text(detalleCantidad,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.onSurfaceVariant)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       [if (comprador != null) comprador, fecha].join(' · '),
                       style: const TextStyle(
-                          fontSize: 12, color: AppTheme.outline),
+                          fontSize: 12.5, color: AppTheme.onSurfaceVariant),
                     ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(FormatoCOP.pesos(v.total),
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w800)),
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _pastillaEstado(v, vencida),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(FormatoCOP.pesos(v.total),
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primary)),
               ),
             ],
           ),
@@ -664,8 +851,12 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
                       color: vencida ? AppTheme.error : AppTheme.secondary)),
             ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: _estadoVenta(v, vencida),
+              ),
+              const Spacer(),
               if (v.estaPendiente)
                 TextButton.icon(
                   onPressed: () => _marcarComoPagada(v),
@@ -683,32 +874,33 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
     );
   }
 
-  Widget _pastillaEstado(Venta v, bool vencida) {
+  /// Estado de la venta como "● Pagado" (punto de color + texto).
+  Widget _estadoVenta(Venta v, bool vencida) {
     final String texto;
-    final Color fondo;
-    final Color letra;
+    final Color color;
     if (v.estaPagada) {
       texto = 'Pagado';
-      fondo = const Color(0xFFE8F5E9);
-      letra = AppTheme.primary;
+      color = AppTheme.primary;
     } else if (vencida) {
       texto = 'Vencida';
-      fondo = AppTheme.errorContainer;
-      letra = AppTheme.onErrorContainer;
+      color = AppTheme.error;
     } else {
       texto = 'Pendiente';
-      fondo = const Color(0xFFFFF3CD);
-      letra = AppTheme.secondary;
+      color = AppTheme.secondary;
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: fondo,
-        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-      ),
-      child: Text(texto,
-          style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w700, color: letra)),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(texto,
+            style: TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
+      ],
     );
   }
 
@@ -716,10 +908,10 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
 
   Widget _iconoCircular(IconData icono, Color color, Color fondo) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(color: fondo, shape: BoxShape.circle),
-      child: Icon(icono, color: color, size: 21),
+      child: Icon(icono, color: color, size: 22),
     );
   }
 
