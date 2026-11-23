@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
 import 'generar_balance_screen.dart';
+import 'produccion_periodo_card.dart';
 
 /// Pantalla "Balance" del módulo Financiera.
 ///
@@ -188,6 +189,8 @@ class _BalanceScreenState extends State<BalanceScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           _tarjetaEstimado(),
+          const SizedBox(height: 14),
+          ProduccionPeriodoCard(repository: widget.produccionRepository),
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 10),

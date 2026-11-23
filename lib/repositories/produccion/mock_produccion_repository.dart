@@ -250,6 +250,7 @@ class MockProduccionRepository implements ProduccionRepository {
         .toSet()
         .length;
     final totalUnidades = huevosRango.fold<int>(0, (s, r) => s + r.cantidad);
+    final totalRotos = huevosRango.fold<int>(0, (s, r) => s + r.cantidadRotos);
     return IndicadoresProduccion(
       periodoInicio: fechaInicio,
       periodoFin: fechaFin,
@@ -265,6 +266,8 @@ class MockProduccionRepository implements ProduccionRepository {
         promedioUnidadesPorRegistro:
             huevosRango.isEmpty ? 0 : totalUnidades / huevosRango.length,
         cantidadRegistros: huevosRango.length,
+        totalRotos: totalRotos,
+        totalAprovechables: totalUnidades - totalRotos,
       ),
     );
   }
