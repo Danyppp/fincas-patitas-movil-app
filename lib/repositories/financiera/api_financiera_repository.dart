@@ -2,6 +2,7 @@ import '../../core/api_client.dart';
 import '../../models/financiera/balance.dart';
 import '../../models/financiera/gasto.dart';
 import '../../models/financiera/precio_mercado.dart';
+import '../../models/financiera/producto_stock.dart';
 import '../../models/financiera/venta.dart';
 import '../../utils/fecha_dia.dart';
 import 'financiera_repository.dart';
@@ -98,6 +99,16 @@ class ApiFinancieraRepository implements FinancieraRepository {
   @override
   Future<void> eliminarPrecio(int id) async {
     await client.delete('/precios-mercado/$id');
+  }
+
+  // ── Stock ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<ProductoStock>> listarStock() async {
+    final data = await client.get('/stock') as List<dynamic>;
+    return data
+        .map((e) => ProductoStock.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ── Balance ───────────────────────────────────────────────────────────

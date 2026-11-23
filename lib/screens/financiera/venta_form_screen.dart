@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/financiera/precio_mercado.dart';
+import '../../models/financiera/producto_stock.dart';
 import '../../models/financiera/venta.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
@@ -71,6 +72,7 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
   String? _productoOriginal; // al editar: el producto con el que se guardó
   double? _precioValor; // precio unitario (bloqueado)
   List<PrecioMercado> _precios = [];
+  List<ProductoStock> _stock = [];
   String _estado = estadoPagado;
   bool _guardando = false;
   String? _error;
@@ -115,6 +117,7 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     _fechaLimite = v?.fechaLimitePago ??
         FechaDia.sumarDias(FechaDia.hoy(), _diasPlazoSugerido);
     _cargarPrecios();
+    _cargarStock();
   }
 
   @override
@@ -150,6 +153,74 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     } on NetworkException {
       // Sin precios: el campo avisa que no hay precio de mercado.
     }
+  }
+
+  // ── Stock ─────────────────────────────────────────────────────────────
+
+  /// Si el stock no carga, no se bloquea nada en la app: el backend sigue
+  /// validando y responde con el mensaje de stock insuficiente.
+  Future<void> _cargarStock() async {
+    try {
+      final lista = await widget.repository.listarStock();
+      if (!mounted) return;
+      setState(() => _stock = lista);
+    } on ApiException {
+      // Sin stock: no se muestra la línea de disponibilidad.
+    } on NetworkException {
+      // Sin stock: no se muestra la línea de disponibilidad.
+    }
+  }
+
+  ProductoStock? get _stockProducto {
+    final clave = _producto?.toLowerCase();
+    if (clave == null) return null;
+    for (final s in _stock) {
+      if (s.nombre.toLowerCase() == clave) return s;
+    }
+    return null;
+  }
+
+  /// Máximo que se puede vender: el stock disponible y, al editar la venta
+  /// con el mismo producto, lo que esa venta ya tenía reservado.
+  double? get _limiteStock {
+    final s = _stockProducto;
+    if (s == null) return null;
+    var limite = s.stockActual;
+    final v = widget.venta;
+    if (v != null && _producto == _productoOriginal) limite += v.cantidad;
+    return limite;
+  }
+
+  Widget _lineaStock(String unidad) {
+    final limite = _limiteStock;
+    if (limite == null) return const SizedBox.shrink();
+    final excede = (_cantidad ?? 0) > limite;
+    final enEdicion = _esEdicion && _producto == _productoOriginal;
+    final etiqueta =
+        enEdicion ? 'Disponible para esta venta' : 'Stock disponible';
+    final color = excede ? AppTheme.error : AppTheme.onSurfaceVariant;
+    final texto = '$etiqueta: ${FormatoCOP.cantidad(limite)} $unidad';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Icon(
+              excede ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
+              size: 16,
+              color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              excede ? '$texto. La cantidad supera el stock.' : texto,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: excede ? FontWeight.w700 : FontWeight.w400),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Precio de mercado más reciente del producto elegido (desempate por
@@ -429,16 +500,19 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
                       child: TextFormField(
                         controller: _cantidadCtrl,
                         textAlign: TextAlign.center,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
+                        // Los huevos se venden por unidad: solo enteros.
+                        keyboardType: TextInputType.numberWithOptions(
+                            decimal: _producto != _huevos),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                          FilteringTextInputFormatter.allow(RegExp(
+                              _producto == _huevos ? r'[0-9]' : r'[0-9.,]')),
                         ],
                         style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.w800),
                         decoration: InputDecoration(
                           hintText: '0',
                           suffixText: unidad.isEmpty ? null : unidad,
+                          errorMaxLines: 2,
                         ),
                         onChanged: (_) => setState(() {}),
                         validator: (v) {
@@ -446,6 +520,14 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
                               (v ?? '').trim().replaceAll(',', '.'));
                           if (valor == null || valor <= 0) {
                             return 'La cantidad debe ser mayor a 0';
+                          }
+                          if (_producto == _huevos &&
+                              valor != valor.roundToDouble()) {
+                            return 'Solo números enteros';
+                          }
+                          final limite = _limiteStock;
+                          if (limite != null && valor > limite) {
+                            return 'No hay stock suficiente: hay ${FormatoCOP.cantidad(limite)} $unidad';
                           }
                           return null;
                         },
@@ -456,6 +538,7 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
                         Icons.add, 'Sumar uno', () => _ajustarCantidad(1)),
                   ],
                 ),
+                _lineaStock(unidad),
                 const SizedBox(height: 22),
                 const FormTitulo(
                     icono: Icons.payments_outlined,
