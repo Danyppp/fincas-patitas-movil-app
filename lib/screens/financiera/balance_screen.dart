@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/financiera/balance.dart';
+import '../../models/financiera/filtro_balances.dart';
 import '../../models/financiera/valor_estimado.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
 import 'generar_balance_screen.dart';
 
@@ -40,6 +42,11 @@ class _BalanceScreenState extends State<BalanceScreen> {
   List<Balance> _balances = [];
   ValorEstimadoHoy? _estimado;
   String? _errorEstimado;
+
+  // Búsqueda por fechas y página actual (empieza en 0) de Balances generados.
+  DateTime? _desde;
+  DateTime? _hasta;
+  int _pagina = 0;
 
   @override
   void initState() {
@@ -187,19 +194,9 @@ class _BalanceScreenState extends State<BalanceScreen> {
             child: Text('Balances generados',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           ),
-          if (_balances.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text('Aún no hay balances generados',
-                    style: TextStyle(color: AppTheme.outline)),
-              ),
-            )
-          else
-            for (final b in _balances) ...[
-              _tarjetaBalance(b),
-              const SizedBox(height: 10),
-            ],
+          _buscador(),
+          const SizedBox(height: 12),
+          ..._listaBalances(),
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 8, 4, 0),
             child: Text(
@@ -210,6 +207,162 @@ class _BalanceScreenState extends State<BalanceScreen> {
         ],
       ),
     );
+  }
+
+  // ── Búsqueda y páginas ────────────────────────────────────────────────
+
+  bool get _rangoInvertido =>
+      _desde != null && _hasta != null && _hasta!.isBefore(_desde!);
+
+  bool get _hayFiltro => _desde != null || _hasta != null;
+
+  Future<void> _elegirFecha({required bool esDesde}) async {
+    final hoy = FechaDia.hoy();
+    final actual = esDesde ? _desde : _hasta;
+    final resultado = await showDatePicker(
+      context: context,
+      initialDate: (actual == null || actual.isAfter(hoy)) ? hoy : actual,
+      firstDate: DateTime(2020),
+      lastDate: hoy,
+    );
+    if (resultado == null) return;
+    setState(() {
+      if (esDesde) {
+        _desde = FechaDia.soloDia(resultado);
+      } else {
+        _hasta = FechaDia.soloDia(resultado);
+      }
+      _pagina = 0;
+    });
+  }
+
+  void _limpiarFiltro() {
+    setState(() {
+      _desde = null;
+      _hasta = null;
+      _pagina = 0;
+    });
+  }
+
+  Widget _buscador() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _campoFecha(
+                  'Desde', _desde, () => _elegirFecha(esDesde: true)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _campoFecha(
+                  'Hasta', _hasta, () => _elegirFecha(esDesde: false)),
+            ),
+            if (_hayFiltro)
+              IconButton(
+                tooltip: 'Quitar filtro',
+                onPressed: _limpiarFiltro,
+                icon: const Icon(Icons.close, color: AppTheme.outline),
+              ),
+          ],
+        ),
+        if (_rangoInvertido)
+          const Padding(
+            padding: EdgeInsets.only(left: 12, top: 6),
+            child: Text(
+              'La fecha final no puede ser anterior a la inicial',
+              style: TextStyle(fontSize: 12, color: AppTheme.error),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _campoFecha(String etiqueta, DateTime? fecha, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+      onTap: onTap,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: etiqueta,
+          isDense: true,
+          prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+        ),
+        child: Text(
+          fecha == null
+              ? 'Cualquiera'
+              : DateFormat('d MMM yyyy', 'es').format(fecha),
+          style: TextStyle(
+              fontSize: 13,
+              color: fecha == null ? AppTheme.outline : AppTheme.onSurface),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _listaBalances() {
+    if (_balances.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(
+            child: Text('Aún no hay balances generados',
+                style: TextStyle(color: AppTheme.outline)),
+          ),
+        ),
+      ];
+    }
+
+    final filtrados = _rangoInvertido
+        ? <Balance>[]
+        : FiltroBalances.filtrar(_balances, desde: _desde, hasta: _hasta);
+    final paginas = FiltroBalances.totalPaginas(filtrados.length);
+    final actual = _pagina.clamp(0, paginas - 1);
+    final visibles = FiltroBalances.pagina(filtrados, actual);
+
+    if (filtrados.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(
+            child: Text('No hay balances en ese rango de fechas',
+                style: TextStyle(color: AppTheme.outline)),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      for (final b in visibles) ...[
+        _tarjetaBalance(b),
+        const SizedBox(height: 10),
+      ],
+      if (paginas > 1)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              onPressed: actual > 0
+                  ? () => setState(() => _pagina = actual - 1)
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+              label: const Text('Anterior'),
+            ),
+            Text('Página ${actual + 1} de $paginas',
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            TextButton.icon(
+              onPressed: actual < paginas - 1
+                  ? () => setState(() => _pagina = actual + 1)
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+              label: const Text('Siguiente'),
+              iconAlignment: IconAlignment.end,
+            ),
+          ],
+        ),
+    ];
   }
 
   BoxDecoration get _decoracionTarjeta => BoxDecoration(
