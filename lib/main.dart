@@ -20,6 +20,9 @@ import 'repositories/financiera/mock_financiera_repository.dart';
 import 'repositories/inventario/api_insumo_repository.dart';
 import 'repositories/inventario/insumo_repository.dart';
 import 'repositories/inventario/mock_insumo_repository.dart';
+import 'repositories/inventario/api_stock_repository.dart';
+import 'repositories/inventario/mock_stock_repository.dart';
+import 'repositories/inventario/stock_repository.dart';
 import 'repositories/produccion/api_produccion_repository.dart';
 import 'repositories/produccion/mock_produccion_repository.dart';
 import 'repositories/produccion/produccion_repository.dart';
@@ -88,6 +91,10 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
       ? ApiInsumoRepository(client: _apiClient)
       : MockInsumoRepository();
 
+  late final StockRepository _stockRepository = AppConfig.useRealApi
+      ? ApiStockRepository(client: _apiClient)
+      : MockStockRepository();
+
   late final EventoSanitarioRepository _eventoSanitarioRepository =
       AppConfig.useRealApi
           ? ApiEventoSanitarioRepository(client: _apiClient)
@@ -137,6 +144,7 @@ class _FincasPatitasAppState extends State<FincasPatitasApp> {
                   reproduccionRepository: _reproduccionRepository,
                   produccionRepository: _produccionRepository,
                   insumoRepository: _insumoRepository,
+                  stockRepository: _stockRepository,
                   eventoSanitarioRepository: _eventoSanitarioRepository,
                   ubicacionRepository: _ubicacionRepository,
                   usuarioRepository: _usuarioRepository,
