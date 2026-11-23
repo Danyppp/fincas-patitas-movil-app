@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
 import 'gasto_form_screen.dart';
+import 'precios_mercado_screen.dart';
 import 'venta_form_screen.dart';
 
 enum _FiltroVentas { todas, pagadas, pendientes }
@@ -255,7 +256,27 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Financiera')),
+      appBar: AppBar(
+        title: const Text('Financiera'),
+        actions: [
+          // Acceso temporal a Precios de mercado; en la Etapa 5 lo
+          // reemplaza el Inicio de Finanzas.
+          IconButton(
+            tooltip: 'Precios de mercado',
+            icon: const Icon(Icons.price_change_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PreciosMercadoScreen(
+                    repository: widget.repository,
+                    mes: _mes,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: _cuerpo(),
       floatingActionButton: (_cargando || _error != null)
           ? null

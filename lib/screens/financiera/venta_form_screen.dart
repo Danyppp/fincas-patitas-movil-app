@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
+import '../../models/financiera/precio_mercado.dart';
 import '../../models/financiera/venta.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../theme/app_theme.dart';
@@ -13,9 +14,13 @@ import '../../utils/formato_cop.dart';
 ///
 /// - Producto: solo Huevos o Leche (decisión de Dany, 2026-11-23: no existe
 ///   la opción "Otro"). Al backend llega solo el nombre del producto.
-/// - Cantidad (con la unidad del producto: L o unid.) y precio unitario en
-///   pesos, ambos obligatorios. El precio empieza vacío (2026-11-23: por
-///   ahora no se sugiere el precio de mercado; Dany definirá cómo).
+/// - Cantidad (con la unidad del producto: L o unid.), obligatoria.
+/// - Precio unitario: BLOQUEADO, no se puede escribir (decisión de Dany,
+///   2026-11-23). Al elegir Huevos o Leche toma el precio de mercado vigente
+///   de ese producto (el más reciente, el mismo de la pastilla "Vigente" de
+///   Precios de mercado). Si el producto no tiene precio, no se puede
+///   guardar la venta hasta registrarlo. Al editar una venta se conserva el
+///   precio con el que se registró, salvo que se cambie de producto.
 /// - Total estimado en vivo (cantidad x precio). El total real lo calcula
 ///   siempre el servidor.
 /// - Comprador (opcional).
@@ -57,11 +62,14 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _cantidadCtrl;
-  late final TextEditingController _precioCtrl;
+  late final TextEditingController _precioCtrl; // solo muestra el precio
   late final TextEditingController _compradorCtrl;
   late DateTime _fecha;
   late DateTime _fechaLimite;
   String? _producto; // Huevos | Leche
+  String? _productoOriginal; // al editar: el producto con el que se guardó
+  double? _precioValor; // precio unitario (bloqueado)
+  List<PrecioMercado> _precios = [];
   String _estado = estadoPagado;
   bool _guardando = false;
   String? _error;
@@ -91,11 +99,13 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
       }
       // Un producto distinto (ventas antiguas) queda sin elegir: hay que
       // escoger Huevos o Leche para poder guardar.
+      _productoOriginal = _producto;
+      _precioValor = v.precioUnitario;
     }
     _cantidadCtrl = TextEditingController(
         text: v == null ? '' : _textoCantidad(v.cantidad));
     _precioCtrl = TextEditingController(
-        text: v == null ? '' : v.precioUnitario.round().toString());
+        text: v == null ? '' : _textoPrecio(v.precioUnitario));
     _compradorCtrl = TextEditingController(text: v?.comprador ?? '');
     final hoy = FechaDia.hoy();
     final hoyEnMes = hoy.year == _mesBase.year && hoy.month == _mesBase.month;
@@ -103,6 +113,7 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     _estado = v?.estadoPago ?? estadoPagado;
     _fechaLimite = v?.fechaLimitePago ??
         FechaDia.sumarDias(FechaDia.hoy(), _diasPlazoSugerido);
+    _cargarPrecios();
   }
 
   @override
@@ -119,14 +130,76 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
         : cantidad.toString();
   }
 
-  void _elegirProducto(String producto) => setState(() => _producto = producto);
+  static String _textoPrecio(double precio) => precio == precio.roundToDouble()
+      ? precio.round().toString()
+      : precio.toStringAsFixed(2);
+
+  // ── Precio de mercado ─────────────────────────────────────────────────
+
+  /// Si los precios no cargan, el producto queda "sin precio" y no se
+  /// puede guardar la venta (se muestra el aviso en el campo).
+  Future<void> _cargarPrecios() async {
+    try {
+      final lista = await widget.repository.listarPrecios();
+      if (!mounted) return;
+      _precios = lista;
+      if (!_esEdicion) _aplicarPrecioVigente();
+    } on ApiException {
+      // Sin precios: el campo avisa que no hay precio de mercado.
+    } on NetworkException {
+      // Sin precios: el campo avisa que no hay precio de mercado.
+    }
+  }
+
+  /// Precio de mercado más reciente del producto elegido (desempate por
+  /// id), igual que la pastilla "Vigente" de Precios de mercado.
+  PrecioMercado? get _precioVigente {
+    final clave = _producto == _huevos
+        ? 'huevo'
+        : _producto == _leche
+            ? 'leche'
+            : null;
+    if (clave == null) return null;
+    PrecioMercado? mejor;
+    for (final p in _precios) {
+      if (!p.producto.toLowerCase().contains(clave)) continue;
+      if (mejor == null ||
+          p.fecha.isAfter(mejor.fecha) ||
+          (p.fecha == mejor.fecha && p.id > mejor.id)) {
+        mejor = p;
+      }
+    }
+    return mejor;
+  }
+
+  void _aplicarPrecioVigente() {
+    final vigente = _precioVigente;
+    setState(() {
+      _precioValor = vigente?.precio;
+      _precioCtrl.text = vigente == null ? '' : _textoPrecio(vigente.precio);
+    });
+  }
+
+  void _elegirProducto(String producto) {
+    setState(() => _producto = producto);
+    final original = widget.venta;
+    if (original != null && producto == _productoOriginal) {
+      // Vuelve al producto original: se restituye el precio de la venta.
+      setState(() {
+        _precioValor = original.precioUnitario;
+        _precioCtrl.text = _textoPrecio(original.precioUnitario);
+      });
+    } else {
+      _aplicarPrecioVigente();
+    }
+  }
 
   // ── Cálculos ──────────────────────────────────────────────────────────
 
   double? get _cantidad =>
       double.tryParse(_cantidadCtrl.text.trim().replaceAll(',', '.'));
 
-  double? get _precio => double.tryParse(_precioCtrl.text.trim());
+  double? get _precio => _precioValor;
 
   double? get _total {
     final c = _cantidad;
@@ -234,10 +307,8 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
                   : null,
           cantidad:
               (cantidad - original.cantidad).abs() > 0.0001 ? cantidad : null,
-          precioUnitario: _precioCtrl.text.trim() !=
-                  original.precioUnitario.round().toString()
-              ? precio
-              : null,
+          precioUnitario:
+              (precio - original.precioUnitario).abs() > 0.0001 ? precio : null,
           comprador:
               comprador != (original.comprador ?? '').trim() ? comprador : null,
           fecha: FechaDia.soloDia(_fecha) != FechaDia.soloDia(original.fecha)
@@ -265,6 +336,18 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+
+  String _ayudaPrecio() {
+    if (_producto == null) {
+      return 'Se toma del precio de mercado del producto (no editable)';
+    }
+    if (_esEdicion && _producto == _productoOriginal) {
+      return 'Precio con el que se registró la venta (no editable)';
+    }
+    final vigente = _precioVigente;
+    if (vigente == null) return 'Sin precio de mercado para $_producto';
+    return 'Precio de mercado vigente desde ${DateFormat('d MMM yyyy', 'es').format(vigente.fecha)} (no editable)';
   }
 
   // ── Pantalla ──────────────────────────────────────────────────────────
@@ -338,19 +421,20 @@ class _VentaFormScreenState extends State<VentaFormScreen> {
             _titulo('Precio unitario'),
             TextFormField(
               controller: _precioCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              readOnly: true,
+              enableInteractiveSelection: false,
               decoration: InputDecoration(
                 hintText: '0',
                 prefixText: '\$ ',
+                prefixIcon: const Icon(Icons.lock_outline),
                 suffixText: unidad.isEmpty ? 'COP' : 'COP / $unidad',
-                helperText: 'Valor en pesos colombianos, sin puntos ni comas',
+                helperText: _ayudaPrecio(),
               ),
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                final valor = int.tryParse((v ?? '').trim());
+              validator: (_) {
+                if (_producto == null) return 'Selecciona primero el producto';
+                final valor = _precioValor;
                 if (valor == null || valor <= 0) {
-                  return 'El precio debe ser mayor a 0';
+                  return 'No hay precio de mercado para $_producto. Regístralo en Precios de mercado';
                 }
                 final t = _total;
                 if (t != null && t > _maxTotal) {
