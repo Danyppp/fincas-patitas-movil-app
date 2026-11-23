@@ -5,9 +5,11 @@ import '../../core/api_exception.dart';
 import '../../models/financiera/gasto.dart';
 import '../../models/financiera/venta.dart';
 import '../../repositories/financiera/financiera_repository.dart';
+import '../../repositories/produccion/produccion_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/fecha_dia.dart';
 import '../../utils/formato_cop.dart';
+import 'balance_screen.dart';
 import 'gasto_form_screen.dart';
 import 'precios_mercado_screen.dart';
 import 'venta_form_screen.dart';
@@ -32,7 +34,14 @@ enum _FiltroVentas { todas, pagadas, pendientes }
 class GastosVentasScreen extends StatefulWidget {
   final FinancieraRepository repository;
 
-  const GastosVentasScreen({super.key, required this.repository});
+  /// Se usa en Balance para calcular el valor estimado de la producción de hoy.
+  final ProduccionRepository produccionRepository;
+
+  const GastosVentasScreen({
+    super.key,
+    required this.repository,
+    required this.produccionRepository,
+  });
 
   @override
   State<GastosVentasScreen> createState() => _GastosVentasScreenState();
@@ -259,6 +268,22 @@ class _GastosVentasScreenState extends State<GastosVentasScreen> {
       appBar: AppBar(
         title: const Text('Financiera'),
         actions: [
+          // Acceso temporal a Balance; en la Etapa 5 lo reemplaza el Inicio
+          // de Finanzas.
+          IconButton(
+            tooltip: 'Balance',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => BalanceScreen(
+                    repository: widget.repository,
+                    produccionRepository: widget.produccionRepository,
+                  ),
+                ),
+              );
+            },
+          ),
           // Acceso temporal a Precios de mercado; en la Etapa 5 lo
           // reemplaza el Inicio de Finanzas.
           IconButton(

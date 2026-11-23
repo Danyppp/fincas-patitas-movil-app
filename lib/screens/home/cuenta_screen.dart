@@ -5,6 +5,7 @@ import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
+import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
@@ -37,6 +38,7 @@ class CuentaScreen extends StatelessWidget {
   final AnimalRepository animalRepository;
   final UsuarioRepository usuarioRepository;
   final FinancieraRepository financieraRepository;
+  final ProduccionRepository produccionRepository;
 
   const CuentaScreen({
     super.key,
@@ -48,6 +50,7 @@ class CuentaScreen extends StatelessWidget {
     required this.animalRepository,
     required this.usuarioRepository,
     required this.financieraRepository,
+    required this.produccionRepository,
   });
 
   void _proximamente(BuildContext context, String seccion) {
@@ -185,6 +188,7 @@ class CuentaScreen extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (_) => GastosVentasScreen(
                       repository: financieraRepository,
+                      produccionRepository: produccionRepository,
                     ),
                   ),
                 );

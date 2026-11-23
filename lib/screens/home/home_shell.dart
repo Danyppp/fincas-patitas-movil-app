@@ -94,6 +94,7 @@ class _HomeShellState extends State<HomeShell> {
         animalRepository: widget.animalRepository,
         usuarioRepository: widget.usuarioRepository,
         financieraRepository: widget.financieraRepository,
+        produccionRepository: widget.produccionRepository,
       ),
     ];
 
