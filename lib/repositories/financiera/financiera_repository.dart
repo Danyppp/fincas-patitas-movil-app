@@ -1,6 +1,7 @@
 import '../../models/financiera/balance.dart';
 import '../../models/financiera/gasto.dart';
 import '../../models/financiera/precio_mercado.dart';
+import '../../models/financiera/producto_stock.dart';
 import '../../models/financiera/venta.dart';
 
 /// Contrato del módulo Financiera: agrupa los cuatro recursos reales del
@@ -36,6 +37,12 @@ abstract class FinancieraRepository {
   Future<PrecioMercado> actualizarPrecio(
       int id, ActualizarPrecioMercadoDTO dto);
   Future<void> eliminarPrecio(int id);
+
+  // ── Stock ─────────────────────────────────────────────────────────────
+  /// Stock actual de Huevos (unidades) y Leche (litros) (`GET /api/stock`).
+  /// Lo usa el formulario de venta para mostrar lo disponible y bloquear
+  /// cantidades mayores; el backend también lo valida.
+  Future<List<ProductoStock>> listarStock();
 
   // ── Balance ───────────────────────────────────────────────────────────
   /// Balances ya generados. No se pueden editar ni eliminar: son fotos

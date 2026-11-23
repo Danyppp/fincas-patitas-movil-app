@@ -1,6 +1,7 @@
 import '../../models/financiera/balance.dart';
 import '../../models/financiera/gasto.dart';
 import '../../models/financiera/precio_mercado.dart';
+import '../../models/financiera/producto_stock.dart';
 import '../../models/financiera/venta.dart';
 import '../../utils/fecha_dia.dart';
 import 'financiera_repository.dart';
@@ -323,6 +324,18 @@ class MockFinancieraRepository implements FinancieraRepository {
   Future<void> eliminarPrecio(int id) async {
     await _espera();
     _precios.removeWhere((p) => p.id == id);
+  }
+
+  // ── Stock ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<ProductoStock>> listarStock() async {
+    return const [
+      ProductoStock(
+          id: 1, nombre: 'Huevos', unidad: 'unidades', stockActual: 100),
+      ProductoStock(
+          id: 2, nombre: 'Leche', unidad: 'litros', stockActual: 12.5),
+    ];
   }
 
   // ── Balance ───────────────────────────────────────────────────────────
