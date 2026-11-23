@@ -10,7 +10,7 @@ import '../../repositories/salud/evento_sanitario_repository.dart';
 import '../../repositories/ubicacion/ubicacion_repository.dart';
 import '../../repositories/usuarios/usuario_repository.dart';
 import '../../theme/app_theme.dart';
-import '../financiera/gastos_ventas_screen.dart';
+import '../financiera/inicio_finanzas_screen.dart';
 import '../salud/historial_salud_screen.dart';
 import '../ubicacion/ubicacion_inicio_screen.dart';
 
@@ -186,7 +186,7 @@ class CuentaScreen extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => GastosVentasScreen(
+                    builder: (_) => InicioFinanzasScreen(
                       repository: financieraRepository,
                       produccionRepository: produccionRepository,
                     ),
