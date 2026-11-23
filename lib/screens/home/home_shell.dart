@@ -5,6 +5,7 @@ import '../../repositories/animales/animal_repository.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/financiera/financiera_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
+import '../../repositories/inventario/stock_repository.dart';
 import '../../repositories/produccion/produccion_repository.dart';
 import '../../repositories/reproduccion/reproduccion_repository.dart';
 import '../../repositories/salud/evento_sanitario_repository.dart';
@@ -31,6 +32,7 @@ class HomeShell extends StatefulWidget {
   final ReproduccionRepository reproduccionRepository;
   final ProduccionRepository produccionRepository;
   final InsumoRepository insumoRepository;
+  final StockRepository stockRepository;
   final EventoSanitarioRepository eventoSanitarioRepository;
   final UbicacionRepository ubicacionRepository;
   final UsuarioRepository usuarioRepository;
@@ -44,6 +46,7 @@ class HomeShell extends StatefulWidget {
     required this.reproduccionRepository,
     required this.produccionRepository,
     required this.insumoRepository,
+    required this.stockRepository,
     required this.eventoSanitarioRepository,
     required this.ubicacionRepository,
     required this.usuarioRepository,
@@ -82,6 +85,7 @@ class _HomeShellState extends State<HomeShell> {
       ),
       InventarioListScreen(
         repository: widget.insumoRepository,
+        stockRepository: widget.stockRepository,
         catalogoRepository: widget.catalogoRepository,
         session: widget.session,
       ),

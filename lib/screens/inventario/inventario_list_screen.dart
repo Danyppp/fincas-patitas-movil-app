@@ -8,10 +8,12 @@ import '../../models/inventario/categoria_bodega.dart';
 import '../../models/inventario/insumo.dart';
 import '../../repositories/catalogo/catalogo_repository.dart';
 import '../../repositories/inventario/insumo_repository.dart';
+import '../../repositories/inventario/stock_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/categoria_visual.dart';
 import 'insumo_form_screen.dart';
 import 'movimiento_form_screen.dart';
+import 'productos_finca_screen.dart';
 
 /// Listado de Inventario (Control de Inventario), siguiendo el mockup de
 /// Stitch (`inventario_y_stock_de_bodega_fincas_y_patitas/screen.png`):
@@ -21,12 +23,14 @@ import 'movimiento_form_screen.dart';
 /// en Animales).
 class InventarioListScreen extends StatefulWidget {
   final InsumoRepository repository;
+  final StockRepository stockRepository;
   final CatalogoRepository catalogoRepository;
   final AuthSession session;
 
   const InventarioListScreen({
     super.key,
     required this.repository,
+    required this.stockRepository,
     required this.catalogoRepository,
     required this.session,
   });
@@ -63,7 +67,8 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
 
   Future<void> _cargarCategorias() async {
     try {
-      final categorias = await widget.catalogoRepository.listarCategoriasBodega();
+      final categorias =
+          await widget.catalogoRepository.listarCategoriasBodega();
       if (!mounted) return;
       setState(() => _categorias = categorias);
     } catch (_) {
@@ -77,7 +82,8 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
       _error = null;
     });
     try {
-      final insumos = await widget.repository.listar(categoriaId: _categoriaFiltroId);
+      final insumos =
+          await widget.repository.listar(categoriaId: _categoriaFiltroId);
       if (!mounted) return;
       setState(() {
         _insumos = insumos;
@@ -117,7 +123,9 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
   List<Insumo> get _insumosFiltrados {
     final termino = _buscarCtrl.text.trim().toLowerCase();
     if (termino.isEmpty) return _insumos;
-    return _insumos.where((i) => i.nombre.toLowerCase().contains(termino)).toList();
+    return _insumos
+        .where((i) => i.nombre.toLowerCase().contains(termino))
+        .toList();
   }
 
   int get _totalItems => _insumos.length;
@@ -139,6 +147,17 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
       ),
     );
     if (registrado == true) _cargar();
+  }
+
+  /// Productos de finca (Huevos y Leche): stock, historial de movimientos
+  /// y ajuste manual. Vive en tablas propias, no entre los insumos de bodega.
+  void _abrirProductosFinca() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ProductosFincaScreen(repository: widget.stockRepository),
+      ),
+    );
   }
 
   Future<void> _abrirRegistroInsumo() async {
@@ -180,12 +199,15 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
     required VoidCallback onTap,
   }) {
     return FilterChip(
-      avatar: Icon(icono, size: 16, color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
+      avatar: Icon(icono,
+          size: 16,
+          color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
       label: Text(etiqueta),
       selected: seleccionado,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-      labelStyle: TextStyle(color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
+      labelStyle: TextStyle(
+          color: seleccionado ? AppTheme.onPrimary : AppTheme.onSurface),
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
@@ -237,17 +259,19 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text('BODEGA PRINCIPAL',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(color: AppTheme.primary, fontWeight: FontWeight.w800)),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    _estadisticaTile('Total Ítems', _totalItems, AppTheme.onSurface),
-                    _estadisticaTile('Stock Bajo', _totalStockBajo, AppTheme.tertiary),
-                    _estadisticaTile('En Nivel', _totalEnNivel, AppTheme.secondary),
+                    _estadisticaTile(
+                        'Total Ítems', _totalItems, AppTheme.onSurface),
+                    _estadisticaTile(
+                        'Stock Bajo', _totalStockBajo, AppTheme.tertiary),
+                    _estadisticaTile(
+                        'En Nivel', _totalEnNivel, AppTheme.secondary),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -259,18 +283,21 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
                     isDense: true,
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
                       borderSide: BorderSide(color: AppTheme.outlineVariant),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
                       borderSide: BorderSide(color: AppTheme.outlineVariant),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusDefault),
                       borderSide: const BorderSide(
                           color: AppTheme.primaryContainer, width: 2),
                     ),
@@ -312,29 +339,38 @@ class _InventarioListScreenState extends State<InventarioListScreen> {
           ),
         ),
       ),
-      body: _cargando || _buscando
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _ErrorState(mensaje: _error!, onReintentar: _cargar)
-              : _insumosFiltrados.isEmpty
-                  ? const Center(child: Text('No hay insumos que coincidan.'))
-                  : RefreshIndicator(
-                      onRefresh: _cargar,
-                      child: ListView.builder(
-                        // Espacio extra abajo para que el FAB "Nuevo
-                        // insumo" no tape la última tarjeta del listado.
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 76),
-                        itemCount: _insumosFiltrados.length,
-                        itemBuilder: (context, i) {
-                          final insumo = _insumosFiltrados[i];
-                          return _InsumoTile(
-                            insumo: insumo,
-                            vencimiento: _vencimientoPorInsumo[insumo.id],
-                            onTap: () => _abrirRegistroMovimiento(insumo),
-                          );
-                        },
-                      ),
-                    ),
+      body: Column(
+        children: [
+          _BannerProductosFinca(onTap: _abrirProductosFinca),
+          Expanded(
+            child: _cargando || _buscando
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? _ErrorState(mensaje: _error!, onReintentar: _cargar)
+                    : _insumosFiltrados.isEmpty
+                        ? const Center(
+                            child: Text('No hay insumos que coincidan.'))
+                        : RefreshIndicator(
+                            onRefresh: _cargar,
+                            child: ListView.builder(
+                              // Espacio extra abajo para que el FAB "Nuevo
+                              // insumo" no tape la última tarjeta del listado.
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 12, 12, 76),
+                              itemCount: _insumosFiltrados.length,
+                              itemBuilder: (context, i) {
+                                final insumo = _insumosFiltrados[i];
+                                return _InsumoTile(
+                                  insumo: insumo,
+                                  vencimiento: _vencimientoPorInsumo[insumo.id],
+                                  onTap: () => _abrirRegistroMovimiento(insumo),
+                                );
+                              },
+                            ),
+                          ),
+          ),
+        ],
+      ),
       // ~30% más chico que un FloatingActionButton.extended por defecto
       // (alto/ícono/texto reducidos), a pedido de Dany.
       floatingActionButton: SizedBox(
@@ -355,7 +391,8 @@ class _InsumoTile extends StatelessWidget {
   final DateTime? vencimiento;
   final VoidCallback onTap;
 
-  const _InsumoTile({required this.insumo, required this.onTap, this.vencimiento});
+  const _InsumoTile(
+      {required this.insumo, required this.onTap, this.vencimiento});
 
   @override
   Widget build(BuildContext context) {
@@ -396,21 +433,27 @@ class _InsumoTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(insumo.nombre, style: textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        if (insumo.descripcion != null && insumo.descripcion!.isNotEmpty)
+                        Text(insumo.nombre,
+                            style: textTheme.titleMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        if (insumo.descripcion != null &&
+                            insumo.descripcion!.isNotEmpty)
                           Text(insumo.descripcion!, style: textTheme.bodySmall),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: estilo.fondo,
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
                     child: Text(estilo.etiqueta,
-                        style: textTheme.labelMedium?.copyWith(color: estilo.texto)),
+                        style: textTheme.labelMedium
+                            ?.copyWith(color: estilo.texto)),
                   ),
                 ],
               ),
@@ -423,9 +466,12 @@ class _InsumoTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Stock Disponible', style: textTheme.labelSmall),
-                        Text('${insumo.stockActual.toStringAsFixed(0)} ${insumo.unidadMedida}',
+                        Text(
+                            '${insumo.stockActual.toStringAsFixed(0)} ${insumo.unidadMedida}',
                             style: textTheme.headlineSmall?.copyWith(
-                              color: agotado || bajo ? estilo.texto : AppTheme.onSurface,
+                              color: agotado || bajo
+                                  ? estilo.texto
+                                  : AppTheme.onSurface,
                             )),
                       ],
                     ),
@@ -437,7 +483,8 @@ class _InsumoTile extends StatelessWidget {
                         Text('Vencimiento', style: textTheme.labelSmall),
                         Row(
                           children: [
-                            const Icon(Icons.event_outlined, size: 14, color: AppTheme.outline),
+                            const Icon(Icons.event_outlined,
+                                size: 14, color: AppTheme.outline),
                             const SizedBox(width: 4),
                             Text(DateFormat('MM/yyyy').format(vencimiento!),
                                 style: textTheme.bodyMedium),
@@ -467,23 +514,27 @@ class _InsumoTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
                     child: Text(
                       insumo.categoria?.nombre ?? 'Sin categoría',
-                      style: textTheme.labelSmall?.copyWith(color: AppTheme.onSurface, letterSpacing: 0),
+                      style: textTheme.labelSmall?.copyWith(
+                          color: AppTheme.onSurface, letterSpacing: 0),
                     ),
                   ),
                   if (insumo.reposicionUrgente)
                     Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.tertiary),
+                        Icon(Icons.warning_amber_rounded,
+                            size: 14, color: AppTheme.tertiary),
                         const SizedBox(width: 4),
                         Text('Reposición urgente',
-                            style: textTheme.labelSmall?.copyWith(color: AppTheme.tertiary)),
+                            style: textTheme.labelSmall
+                                ?.copyWith(color: AppTheme.tertiary)),
                       ],
                     ),
                 ],
@@ -514,8 +565,56 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onReintentar, child: const Text('Reintentar')),
+            FilledButton(
+                onPressed: onReintentar, child: const Text('Reintentar')),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Acceso a "Productos de finca" (Huevos y Leche), que viven en tablas
+/// propias y no entre los insumos de bodega.
+class _BannerProductosFinca extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _BannerProductosFinca({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: Material(
+        color: AppTheme.primaryContainer.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusDefault),
+          onTap: onTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.egg_outlined, color: AppTheme.primary),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Productos de finca',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      Text('Stock de huevos y leche, historial y ajustes',
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppTheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: AppTheme.onSurfaceVariant),
+              ],
+            ),
+          ),
         ),
       ),
     );

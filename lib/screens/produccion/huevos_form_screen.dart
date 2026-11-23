@@ -89,7 +89,12 @@ class _HuevosFormScreenState extends State<HuevosFormScreen> {
         final especie = (a.especie?.nombre ?? '').toLowerCase();
         return especie.contains('ave') || especie.contains('galli');
       }).toList();
-      final lotes = await widget.catalogoRepository.listarLotes();
+      // Igual que con los animales: solo los lotes de aves/gallinas pueden
+      // registrar huevos. Un lote sin especie no se ofrece.
+      final lotes = (await widget.catalogoRepository.listarLotes()).where((l) {
+        final especie = (l.especie?.nombre ?? '').toLowerCase();
+        return especie.contains('ave') || especie.contains('galli');
+      }).toList();
       setState(() {
         _animales = aves;
         _lotes = lotes;
